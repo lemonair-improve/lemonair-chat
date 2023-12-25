@@ -1,0 +1,5 @@
+WEBSOCKET ws://localhost:8080/chat/1
+Authorization: a
+###
+WEBSOCKET ws://localhost:8080/chat/1
+Authorization: b
