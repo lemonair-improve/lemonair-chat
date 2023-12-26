@@ -2,7 +2,7 @@ spring:
   r2dbc:
     url: r2dbc:mysql://localhost:3306/streamtest?serverTimezone=UTC+9&useUnicode=true&characterEncoding=utf8
     username: root
-    password: 12345678
+    password: uioprewq
 
   kafka:
     bootstrap-servers:
@@ -16,3 +16,7 @@ spring:
 
 server:
   port: 8082
+
+jwt:
+  secretKey: ${JWT_SECRET_KEY}
+
