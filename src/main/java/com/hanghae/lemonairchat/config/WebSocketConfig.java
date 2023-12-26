@@ -26,10 +26,10 @@ public class WebSocketConfig {
                     .getHeaders()
                     .getFirst("Authorization");
 
-                if (auth == null) {
-                    exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-                    return exchange.getResponse().setComplete();
-                }
+//                if (auth == null) {
+//                    exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+//                    return exchange.getResponse().setComplete();
+//                }
 
                 return exchange.getSession()
                     .flatMap(session -> {
