@@ -1,5 +1,5 @@
 WEBSOCKET ws://localhost:8080/chat/1
-#Authorization: a
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJpZCI6ImFsYW5lZWxlZTEiLCJuaWNrbmFtZSI6InRlc3QxMjMxIiwiZXhwIjoxNzAzNTkyNDk3LCJpYXQiOjE3MDM1OTE1OTd9.31_7QdvXt8wXcVSnil02rxduWH2ERIAvHjO6NQfnVIY
 ###
 WEBSOCKET ws://localhost:8080/chat/1
-Authorization: b
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJpZCI6InRlc3RzYmwiLCJuaWNrbmFtZSI6InRlc3RzYmwiLCJleHAiOjE3MDM1OTI0NzgsImlhdCI6MTcwMzU5MTU3OH0.l_ehF3EAF4KZ9DOJVXg6WWM7-haMbLVbrl4HTSwshCc

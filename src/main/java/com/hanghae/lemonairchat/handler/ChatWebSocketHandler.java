@@ -24,8 +24,8 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 	@Override
 	public Mono<Void> handle(WebSocketSession session) {
 
-		final String auth = (String)session.getAttributes().get("Authorization");
-
+		final String role = (String)session.getAttributes().get("Role");
+		final String nickname = (String)session.getAttributes().get("Nickname");
 		final String roomId;
 
 		String getUrl = session.getHandshakeInfo().getUri().getPath();
@@ -42,10 +42,10 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 		Flux<Chat> chatFlux = chatService.register(roomId);
 		session.receive().flatMap(webSocketMessage -> {
 			String message = webSocketMessage.getPayloadAsText();
-			if (Role.NOT_LOGIN.getRole().equals(auth)) {
+			if (Role.NOT_LOGIN.toString().equals(role)) {
 				return Mono.just(true);
 			}
-			return chatService.sendChat(roomId, new Chat(message, auth, roomId)).flatMap(result -> {
+			return chatService.sendChat(roomId, new Chat(message, nickname, roomId)).flatMap(result -> {
 				if (!result) {
 					return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 요청입니다"));
 				}
@@ -53,8 +53,8 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 			});
 		}).subscribe();
 
-		if (Role.NOT_LOGIN.getRole().equals(auth)) {
-			chatService.sendChat(auth, new Chat(auth + "님 채팅방에 오신 것을 환영합니다", "system", roomId));
+		if (Role.NOT_LOGIN.toString().equals(role)) {
+			chatService.sendChat(roomId, new Chat(nickname + "님 채팅방에 오신 것을 환영합니다", "system", roomId));
 		}
 
 		return session.send(chatFlux.map(chat -> session.textMessage(chat.getSender() + ": " + chat.getMessage())));

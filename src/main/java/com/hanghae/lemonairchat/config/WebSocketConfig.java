@@ -2,7 +2,7 @@ package com.hanghae.lemonairchat.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpStatus;
+import org.springframework.util.ObjectUtils;
 import org.springframework.web.reactive.socket.WebSocketHandler;
 import org.springframework.web.reactive.socket.server.WebSocketService;
 import org.springframework.web.reactive.socket.server.support.HandshakeWebSocketService;
@@ -10,33 +10,49 @@ import org.springframework.web.reactive.socket.server.support.WebSocketHandlerAd
 import org.springframework.web.server.ServerWebExchange;
 
 import com.hanghae.lemonairchat.constants.Role;
+import com.hanghae.lemonairchat.util.JwtTokenSubjectDto;
+import com.hanghae.lemonairchat.util.JwtUtil;
 
 import reactor.core.publisher.Mono;
 
 @Configuration
 public class WebSocketConfig {
+
+
     @Bean
-    public WebSocketHandlerAdapter webSocketHandlerAdapter() {
-        return new WebSocketHandlerAdapter(webSocketService());
+    public WebSocketHandlerAdapter webSocketHandlerAdapter(JwtUtil jwtUtil) {
+        return new WebSocketHandlerAdapter(webSocketService(jwtUtil));
     }
 
     @Bean
-    public WebSocketService webSocketService() {
+    public WebSocketService webSocketService(JwtUtil jwtUtil) {
         HandshakeWebSocketService webSocketService = new HandshakeWebSocketService() {
             @Override
             public Mono<Void> handleRequest(ServerWebExchange exchange, WebSocketHandler handler) {
-                String auth = exchange.getRequest()
+                String jwtAccessToken = exchange.getRequest()
                     .getHeaders()
                     .getFirst("Authorization");
 
-//                if (auth == null) {
-//                    exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-//                    return exchange.getResponse().setComplete();
-//                }
+                String nicknameAttr;
+                String loginIdAttr;
+                Role role;
+                if(!ObjectUtils.isEmpty(jwtAccessToken)){
+                    JwtTokenSubjectDto jwtTokenSubjectDto = jwtUtil.getSubjectFromToken(jwtAccessToken);
+                    loginIdAttr = jwtTokenSubjectDto.getLoginId();
+                    nicknameAttr = jwtTokenSubjectDto.getNickname();
+                    role = Role.MEMBER;
+                    // TODO: 2023-12-26 방송의 방장 or Manager 인지 파악하는 로직 추가
+                } else {
+					role = Role.NOT_LOGIN;
+					nicknameAttr = "";
+					loginIdAttr = "";
+				}
 
-                return exchange.getSession()
+				return exchange.getSession()
                     .flatMap(session -> {
-                        session.getAttributes().put("Authorization", auth == null ? "" : Role.NOT_LOGIN.getRole());
+                        session.getAttributes().put("Role", role.toString());
+                        session.getAttributes().put("LoginId", loginIdAttr);
+                        session.getAttributes().put("Nickname", nicknameAttr);
                         return super.handleRequest(exchange, handler);
                     });
 
