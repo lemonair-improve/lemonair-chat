@@ -20,12 +20,11 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 
     @Override
     public Mono<Void> handle(WebSocketSession session) {
-
-        final String auth = (String) session.getAttributes().get("Authorization");
-
-        final String roomId;
+        String auth = (String) session.getAttributes().get("Authorization");
 
         String getUrl = session.getHandshakeInfo().getUri().getPath();
+
+        final String roomId;
 
         String[] pathSegments = getUrl.split("/");
         if (pathSegments.length > 2) {
@@ -37,24 +36,22 @@ public class ChatWebSocketHandler implements WebSocketHandler {
         log.info("handle getUrl : {}", roomId);
 
         Flux<Chat> chatFlux = chatService.register(roomId);
+        chatService.sendChat(auth,
+            new Chat(auth + "님 채팅방에 오신 것을 환영합니다", "system", roomId));
 
-        if(auth != null) {
-            chatService.sendChat(auth,
-                new Chat(auth + "님 채팅방에 오신 것을 환영합니다", "system", roomId));
+        session.receive()
+            .flatMap(webSocketMessage -> {
+                String message = webSocketMessage.getPayloadAsText();
+                return chatService.sendChat(roomId, new Chat(message, auth, roomId))
+                    .flatMap(result -> {
+                        if (!result) {
+                            return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 요청입니다"));
+                        }
+                        return Mono.just(true);
+                    });
+            })
+            .subscribe();
 
-            session.receive()
-                .flatMap(webSocketMessage -> {
-                    String message = webSocketMessage.getPayloadAsText();
-                    return chatService.sendChat(roomId, new Chat(message, auth, roomId))
-                        .flatMap(result -> {
-                            if (!result) {
-                                return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 요청입니다"));
-                            }
-                            return Mono.just(true);
-                        });
-                })
-                .subscribe();
-        }
         return session.send(chatFlux
             .map(chat -> session.textMessage(chat.getSender() + ": " + chat.getMessage()))
         );
