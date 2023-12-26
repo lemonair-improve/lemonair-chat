@@ -8,6 +8,9 @@ import org.springframework.web.reactive.socket.server.WebSocketService;
 import org.springframework.web.reactive.socket.server.support.HandshakeWebSocketService;
 import org.springframework.web.reactive.socket.server.support.WebSocketHandlerAdapter;
 import org.springframework.web.server.ServerWebExchange;
+
+import com.hanghae.lemonairchat.constants.Role;
+
 import reactor.core.publisher.Mono;
 
 @Configuration
@@ -33,7 +36,7 @@ public class WebSocketConfig {
 
                 return exchange.getSession()
                     .flatMap(session -> {
-                        session.getAttributes().put("Authorization", auth);
+                        session.getAttributes().put("Authorization", auth == null ? "" : Role.NOT_LOGIN.getRole());
                         return super.handleRequest(exchange, handler);
                     });
 
