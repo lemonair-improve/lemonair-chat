@@ -1,5 +1,6 @@
 package com.hanghae.lemonairchat.config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.util.ObjectUtils;
@@ -16,6 +17,7 @@ import com.hanghae.lemonairchat.util.JwtUtil;
 import reactor.core.publisher.Mono;
 
 @Configuration
+@Slf4j
 public class WebSocketConfig {
 
 	@Bean
@@ -29,9 +31,12 @@ public class WebSocketConfig {
 			@Override
 			public Mono<Void> handleRequest(ServerWebExchange exchange, WebSocketHandler handler) {
 				String jwtAccessToken = exchange.getRequest().getHeaders().getFirst("Authorization");
+				log.info("jwtToken : {}", jwtAccessToken);
 
-				String nicknameAttr ;
-				final String loginIdAttr;
+
+//				String jwtAccessToken = "Bearer eyJhbGciOiJIUzI1NiJ9.eyJpZCI6ImFsYW5lZWxlZTEiLCJuaWNrbmFtZSI6InRlc3QxMjMxIiwiZXhwIjoxNzAzNjY3MDg1LCJpYXQiOjE3MDM2NjEwODV9.3bc1rq0JzugvbpBNOTdAvg-6fSkSKAWo1fEcS-YwqNs";
+				String nicknameAttr;
+				String loginIdAttr;
 				Role role;
 				if (!ObjectUtils.isEmpty(jwtAccessToken)) {
 					JwtTokenSubjectDto jwtTokenSubjectDto = jwtUtil.getSubjectFromToken(jwtAccessToken);

@@ -11,21 +11,20 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ChatService {
     private final ChatRepository chatRepository;
-
-    private static Map<String, Sinks.Many<Chat>> chatSinkMap = new ConcurrentHashMap<>();
+    private final Map<String, Sinks.Many<Chat>> chatSinkMap = new ConcurrentHashMap<>();
 
     public Flux<Chat> register(String roomId) {
-
         log.info("roomId: {}", roomId);
 
-        Sinks.Many<Chat> sink = chatSinkMap.computeIfAbsent(roomId, key -> Sinks.many().multicast().onBackpressureBuffer());
+        Sinks.Many<Chat> sink = chatSinkMap.computeIfAbsent(roomId,
+            key -> Sinks.many().multicast().onBackpressureBuffer());
 
-        return sink.asFlux();
+        return sink.asFlux().doOnCancel(() -> chatSinkMap.remove(roomId, sink));
     }
 
     public Mono<Boolean> sendChat(String roomId, Chat chat) {
