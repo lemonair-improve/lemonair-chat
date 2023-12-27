@@ -24,8 +24,11 @@ public class ChatService {
 	public Flux<Chat> register(String roomId) {
 
 		log.info("roomId: {}", roomId);
+		// TODO: 2023-12-28 여기가 수상하다.
+
 		Sinks.Many<Chat> sink = chatSinkMap.computeIfAbsent(roomId,
 			key -> Sinks.many().multicast().onBackpressureBuffer());
+		log.info("sink.currentSubscriberCount() : " + sink.currentSubscriberCount());
 		return sink.asFlux();
 	}
 
