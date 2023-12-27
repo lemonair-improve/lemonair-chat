@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.SignalType;
 
 @RequiredArgsConstructor
 @Component
@@ -31,17 +32,24 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 		String getUrl = session.getHandshakeInfo().getUri().getPath();
 
 		String[] pathSegments = getUrl.split("/");
+
 		if (pathSegments.length > 2) {
 			roomId = pathSegments[2];
 		} else {
 			return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 경로입니다"));
 		}
 
-		log.info("handle getUrl : {}", roomId);
+		log.info("handle roomId : {}", roomId);
 
 		Flux<Chat> chatFlux = chatService.register(roomId);
-
-		session.receive().flatMap(webSocketMessage -> {
+		// 받은 signalType이
+		session.receive().doFinally(signalType -> {
+			// WebSocket 연결이 종료될 때의 로직
+			if (signalType == SignalType.ON_COMPLETE || signalType == SignalType.CANCEL) {
+				log.info("WebSocket 연결이 종료되었습니다.");
+				session.close().log().subscribe();
+			}
+		}).flatMap(webSocketMessage -> {
 			String message = webSocketMessage.getPayloadAsText();
 			log.info("webSocketMessage.getNativeMessage() : " + webSocketMessage.getNativeMessage());
 			log.info("webSocketMessage.getType() : " + webSocketMessage.getType());
