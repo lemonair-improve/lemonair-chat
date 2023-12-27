@@ -13,8 +13,10 @@ import com.hanghae.lemonairchat.constants.Role;
 import com.hanghae.lemonairchat.util.JwtTokenSubjectDto;
 import com.hanghae.lemonairchat.util.JwtUtil;
 
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 
+@Slf4j
 @Configuration
 public class WebSocketConfig {
 
@@ -28,16 +30,20 @@ public class WebSocketConfig {
 		HandshakeWebSocketService webSocketService = new HandshakeWebSocketService() {
 			@Override
 			public Mono<Void> handleRequest(ServerWebExchange exchange, WebSocketHandler handler) {
-				String jwtAccessToken = exchange.getRequest().getHeaders().getFirst("Authorization");
-
-				String nicknameAttr ;
+				log.info("exchange.getRequest().getURI().getPath() : " + exchange.getRequest().getURI().getPath());
+				String path = exchange.getRequest().getURI().getPath();
+				String jwtChatAccessToken = path.substring(path.lastIndexOf("/") + 1);
+				log.info("jwtChatAccessToken : " + jwtChatAccessToken);
+				String nicknameAttr;
 				final String loginIdAttr;
 				Role role;
-				if (!ObjectUtils.isEmpty(jwtAccessToken)) {
-					JwtTokenSubjectDto jwtTokenSubjectDto = jwtUtil.getSubjectFromToken(jwtAccessToken);
+				if (!ObjectUtils.isEmpty(jwtChatAccessToken)) {
+					JwtTokenSubjectDto jwtTokenSubjectDto = jwtUtil.getSubjectFromToken(jwtChatAccessToken);
 					if (jwtTokenSubjectDto != null) {
 						loginIdAttr = jwtTokenSubjectDto.getLoginId();
 						nicknameAttr = jwtTokenSubjectDto.getNickname();
+						log.info("loginIdAttr : " + loginIdAttr);
+						log.info("nicknameAttr : " + nicknameAttr);
 						role = Role.MEMBER;
 						return exchange.getSession().flatMap(session -> {
 							session.getAttributes().put("Role", role.toString());

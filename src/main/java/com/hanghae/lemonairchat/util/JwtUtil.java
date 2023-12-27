@@ -64,8 +64,13 @@ public class JwtUtil {
 				token = token.substring("Bearer ".length());
 			}
 			var jwtBody = Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody();
-			log.info(jwtBody.get("id", String.class));
-			log.info(jwtBody.get("nickname", String.class));
+			if (!"chatToken".equals(jwtBody.get("type", String.class))) {
+				throw new RuntimeException("채팅 서버용 토큰 아님");
+			}
+			log.info(" chatToken 정상 확인");
+			log.info("참가자 id " + jwtBody.get("id", String.class));
+			log.info("참가자 nickname " + jwtBody.get("nickname", String.class));
+
 			return new JwtTokenSubjectDto(jwtBody.get("id", String.class), jwtBody.get("nickname", String.class));
 		} catch (Exception e) {
 			log.error(e.toString());

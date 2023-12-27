@@ -27,7 +27,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 		final String role = (String)session.getAttributes().get("Role");
 		final String nickname = (String)session.getAttributes().get("Nickname");
 		final String roomId;
-
+		// final String
 		String getUrl = session.getHandshakeInfo().getUri().getPath();
 
 		String[] pathSegments = getUrl.split("/");
@@ -40,8 +40,12 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 		log.info("handle getUrl : {}", roomId);
 
 		Flux<Chat> chatFlux = chatService.register(roomId);
+
 		session.receive().flatMap(webSocketMessage -> {
 			String message = webSocketMessage.getPayloadAsText();
+			log.info("webSocketMessage.getNativeMessage() : " + webSocketMessage.getNativeMessage());
+			log.info("webSocketMessage.getType() : " + webSocketMessage.getType());
+			log.info("webSocketMessage.getPayloadAsText() : " + webSocketMessage.getPayloadAsText());
 			if (Role.NOT_LOGIN.toString().equals(role)) {
 				return Mono.just(true);
 			}

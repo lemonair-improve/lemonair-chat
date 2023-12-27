@@ -17,7 +17,7 @@ public class MappingConfig {
         SimpleUrlHandlerMapping mapping = new SimpleUrlHandlerMapping();
         Map<String, WebSocketHandler> urlMap = new HashMap<>();
 
-        urlMap.put("/chat/{roomId}", chatWebSocketHandler);
+        urlMap.put("/chat/{roomId}/{chatToken}", chatWebSocketHandler);
 
         mapping.setOrder(1);
         mapping.setUrlMap(urlMap);
