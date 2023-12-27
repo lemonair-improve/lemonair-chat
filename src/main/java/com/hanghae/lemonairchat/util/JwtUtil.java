@@ -60,8 +60,8 @@ public class JwtUtil {
 
 	public JwtTokenSubjectDto getSubjectFromToken(String token) {
 		try {
-			if (token.startsWith("Bearer ")) {
-				token = token.substring("Bearer ".length());
+			if (token.startsWith(BEARER_PREFIX)) {
+				token = token.substring(BEARER_PREFIX.length());
 			}
 			var jwtBody = Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody();
 			if (!"chatToken".equals(jwtBody.get("type", String.class))) {
