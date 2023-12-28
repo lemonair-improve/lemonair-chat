@@ -73,8 +73,7 @@ public class JwtUtil {
 
 			return new JwtTokenSubjectDto(jwtBody.get("id", String.class), jwtBody.get("nickname", String.class));
 		} catch (Exception e) {
-			log.error(e.toString());
-			return null;
+			throw new RuntimeException("jwt token parsing 실패");
 		}
 	}
 }

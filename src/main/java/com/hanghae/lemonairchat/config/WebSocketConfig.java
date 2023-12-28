@@ -34,38 +34,29 @@ public class WebSocketConfig {
 				String path = exchange.getRequest().getURI().getPath();
 				String jwtChatAccessToken = path.substring(path.lastIndexOf("/") + 1);
 				log.info("jwtChatAccessToken : " + jwtChatAccessToken);
-				String nicknameAttr;
-				final String loginIdAttr;
-				Role role;
-				if (!ObjectUtils.isEmpty(jwtChatAccessToken)) {
-					JwtTokenSubjectDto jwtTokenSubjectDto = jwtUtil.getSubjectFromToken(jwtChatAccessToken);
-					if (jwtTokenSubjectDto != null) {
-						loginIdAttr = jwtTokenSubjectDto.getLoginId();
-						nicknameAttr = jwtTokenSubjectDto.getNickname();
-						log.info("loginIdAttr : " + loginIdAttr);
-						log.info("nicknameAttr : " + nicknameAttr);
-						role = Role.MEMBER;
-						return exchange.getSession().flatMap(session -> {
-							session.getAttributes().put("Role", role.toString());
-							session.getAttributes().put("LoginId", loginIdAttr);
-							session.getAttributes().put("Nickname", nicknameAttr);
-							return super.handleRequest(exchange, handler);
-						});
-						// TODO: 2023-12-26 방송의 방장 or Manager 인지 파악하는 로직 추가
-					}
+
+				if (ObjectUtils.isEmpty(jwtChatAccessToken)) {
+					throw new RuntimeException("chatAccessToken path param이 공백 문자열입니다.");
 				}
+				if (!"notlogin".equals(jwtChatAccessToken)) {
 
-				role = Role.NOT_LOGIN;
-				nicknameAttr = "";
-				loginIdAttr = "";
-
-				return exchange.getSession().flatMap(session -> {
-					session.getAttributes().put("Role", role.toString());
-					session.getAttributes().put("LoginId", loginIdAttr);
-					session.getAttributes().put("Nickname", nicknameAttr);
-					return super.handleRequest(exchange, handler);
-				});
-
+					log.info("로그인한 사용자의 채팅 웹 소켓 연결 요청");
+					JwtTokenSubjectDto jwtTokenSubjectDto = jwtUtil.getSubjectFromToken(jwtChatAccessToken);
+					log.info("jwtTokenSubjectDto.toString() : " + jwtTokenSubjectDto.toString());
+					return exchange.getSession().flatMap(session -> {
+						session.getAttributes().put("Role", Role.MEMBER.toString());
+						session.getAttributes().put("LoginId", jwtTokenSubjectDto.getLoginId());
+						session.getAttributes().put("Nickname", jwtTokenSubjectDto.getNickname());
+						return super.handleRequest(exchange, handler);
+					});
+					// TODO: 2023-12-26 방송의 방장 or Manager 인지 파악하는 로직 추가
+				} else {
+					log.info("로그인하지 않은 사용자의 채팅 웹 소켓 연결 요청");
+					return exchange.getSession().flatMap(session -> {
+						session.getAttributes().put("Role", Role.NOT_LOGIN.toString());
+						return super.handleRequest(exchange, handler);
+					});
+				}
 			}
 		};
 

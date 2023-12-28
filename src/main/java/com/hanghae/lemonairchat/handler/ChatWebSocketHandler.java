@@ -24,9 +24,8 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 
 	@Override
 	public Mono<Void> handle(WebSocketSession session) {
-
 		final String role = (String)session.getAttributes().get("Role");
-		final String nickname = (String)session.getAttributes().get("Nickname");
+		final String nickname = (String)session.getAttributes().getOrDefault("Nickname", "익명의 사용자");
 		final String roomId;
 		// final String
 		String getUrl = session.getHandshakeInfo().getUri().getPath();
@@ -65,7 +64,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 			});
 		}).subscribe();
 
-		if (Role.NOT_LOGIN.toString().equals(role)) {
+		if (!Role.NOT_LOGIN.toString().equals(role)) {
 			chatService.sendChat(roomId, new Chat(nickname + "님 채팅방에 오신 것을 환영합니다", "system", roomId));
 		}
 
