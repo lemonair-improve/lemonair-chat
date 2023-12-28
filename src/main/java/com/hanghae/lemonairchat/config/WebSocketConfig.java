@@ -28,6 +28,7 @@ public class WebSocketConfig {
 	@Bean
 	public WebSocketService webSocketService(JwtUtil jwtUtil) {
 		HandshakeWebSocketService webSocketService = new HandshakeWebSocketService() {
+			int index = 0;
 			@Override
 			public Mono<Void> handleRequest(ServerWebExchange exchange, WebSocketHandler handler) {
 				log.info("exchange.getRequest().getURI().getPath() : " + exchange.getRequest().getURI().getPath());
@@ -37,6 +38,15 @@ public class WebSocketConfig {
 
 				if (ObjectUtils.isEmpty(jwtChatAccessToken)) {
 					throw new RuntimeException("chatAccessToken path param이 공백 문자열입니다.");
+				}
+				if("test".equals(jwtChatAccessToken)){
+					return exchange.getSession().flatMap(session -> {
+						log.info("{} 번째 입장", index);
+						session.getAttributes().put("Role", Role.MEMBER.toString());
+						session.getAttributes().put("LoginId", "id"+index++);
+						session.getAttributes().put("Nickname", "nickname" + index);
+						return super.handleRequest(exchange, handler);
+					});
 				}
 				if (!"notlogin".equals(jwtChatAccessToken)) {
 
