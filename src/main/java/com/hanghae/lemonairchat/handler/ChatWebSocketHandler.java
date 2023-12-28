@@ -42,12 +42,12 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 		log.info("handle roomId : {}", roomId);
 
 		Flux<Chat> chatFlux = chatService.register(roomId);
-		// 받은 signalType이
 		session.receive().doFinally(signalType -> {
 			// WebSocket 연결이 종료될 때의 로직
 			if (signalType == SignalType.ON_COMPLETE || signalType == SignalType.CANCEL) {
 				log.info("WebSocket 연결이 종료되었습니다.");
 				session.close().log().subscribe();
+				chatService.deRegister(roomId);
 			}
 		}).flatMap(webSocketMessage -> {
 			String message = webSocketMessage.getPayloadAsText();

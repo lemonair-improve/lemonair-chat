@@ -23,7 +23,7 @@ public class ChatService {
 
 	public Flux<Chat> register(String roomId) {
 
-		log.info("roomId: {}", roomId);
+		log.info("register roomId: {}", roomId);
 		// TODO: 2023-12-28 여기가 수상하다.
 
 		Sinks.Many<Chat> sink = chatSinkMap.computeIfAbsent(roomId,
@@ -44,5 +44,10 @@ public class ChatService {
 			sink.tryEmitNext(savedChat);
 			return Mono.just(true);
 		});
+	}
+
+	public void deRegister(String roomId) {
+		log.info("deRegister : roomId : {}, 현재 구독자 수 {}",roomId, chatSinkMap.get(roomId).currentSubscriberCount());
+		chatSinkMap.computeIfPresent(roomId, (key, value) -> value.currentSubscriberCount() <=1 ? null : value);
 	}
 }
