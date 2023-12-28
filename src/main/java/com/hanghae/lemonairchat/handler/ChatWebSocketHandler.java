@@ -70,4 +70,5 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 
 		return session.send(chatFlux.map(chat -> session.textMessage(chat.getSender() + ": " + chat.getMessage())));
 	}
+
 }
