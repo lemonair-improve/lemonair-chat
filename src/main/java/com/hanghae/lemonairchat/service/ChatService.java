@@ -23,18 +23,17 @@ public class ChatService {
 
 	public Flux<Chat> register(String roomId) {
 
-		log.info("register roomId: {}", roomId);
+		// log.info("register roomId: {}", roomId);
 		// TODO: 2023-12-28 여기가 수상하다.
 
 		Sinks.Many<Chat> sink = chatSinkMap.computeIfAbsent(roomId,
 			key -> Sinks.many().multicast().onBackpressureBuffer());
-		log.info("sink.currentSubscriberCount() : " + sink.currentSubscriberCount());
+		// log.info("현재 구독자 수 : " + sink.currentSubscriberCount());
 		return sink.asFlux();
 	}
 
 	public Mono<Boolean> sendChat(String roomId, Chat chat) {
-		log.info("roomId: {}, chat: {}", roomId, chat);
-
+		log.info("roomId: {}, sender: {} chatMessage: {}", roomId, chat.getSender(), chat.getMessage());
 		return chatRepository.save(chat).flatMap(savedChat -> {
 			Sinks.Many<Chat> sink = chatSinkMap.get(roomId);
 			if (sink == null) {
@@ -47,7 +46,7 @@ public class ChatService {
 	}
 
 	public void deRegister(String roomId) {
-		log.info("deRegister : roomId : {}, 현재 구독자 수 {}",roomId, chatSinkMap.get(roomId).currentSubscriberCount());
+		// log.info("deRegister : roomId : {}, 현재 구독자 수 {}",roomId, chatSinkMap.get(roomId).currentSubscriberCount());
 		chatSinkMap.computeIfPresent(roomId, (key, value) -> value.currentSubscriberCount() <=1 ? null : value);
 	}
 }

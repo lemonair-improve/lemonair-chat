@@ -38,21 +38,21 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 			return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 경로입니다"));
 		}
 
-		log.info("handle roomId : {}", roomId);
+		// log.info("handle roomId : {}", roomId);
 
 		Flux<Chat> chatFlux = chatService.register(roomId);
 		session.receive().doFinally(signalType -> {
 			// WebSocket 연결이 종료될 때의 로직
 			if (signalType == SignalType.ON_COMPLETE || signalType == SignalType.CANCEL) {
 				log.info("WebSocket 연결이 종료되었습니다.");
-				session.close().log().subscribe();
+				session.close().subscribe();
 				chatService.deRegister(roomId);
 			}
 		}).flatMap(webSocketMessage -> {
 			String message = webSocketMessage.getPayloadAsText();
-			log.info("webSocketMessage.getNativeMessage() : " + webSocketMessage.getNativeMessage());
-			log.info("webSocketMessage.getType() : " + webSocketMessage.getType());
-			log.info("webSocketMessage.getPayloadAsText() : " + webSocketMessage.getPayloadAsText());
+			// log.info("webSocketMessage.getNativeMessage() : " + webSocketMessage.getNativeMessage());
+			// log.info("webSocketMessage.getType() : " + webSocketMessage.getType());
+			// log.info("webSocketMessage.getPayloadAsText() : " + webSocketMessage.getPayloadAsText());
 			if (Role.NOT_LOGIN.toString().equals(role)) {
 				return Mono.just(true);
 			}
@@ -65,7 +65,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 		}).subscribe();
 
 		if (!Role.NOT_LOGIN.toString().equals(role)) {
-			chatService.sendChat(roomId, new Chat(nickname + "님 채팅방에 오신 것을 환영합니다", "system", roomId));
+			chatService.sendChat(roomId, new Chat(nickname + "님 채팅방에 오신 것을 환영합니다", "system", roomId)).subscribe();
 		}
 
 		return session.send(chatFlux.map(chat -> session.textMessage(chat.getSender() + ": " + chat.getMessage())));

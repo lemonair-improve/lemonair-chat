@@ -31,20 +31,20 @@ public class WebSocketConfig {
 			int index = 0;
 			@Override
 			public Mono<Void> handleRequest(ServerWebExchange exchange, WebSocketHandler handler) {
-				log.info("exchange.getRequest().getURI().getPath() : " + exchange.getRequest().getURI().getPath());
+				// log.info("exchange.getRequest().getURI().getPath() : " + exchange.getRequest().getURI().getPath());
 				String path = exchange.getRequest().getURI().getPath();
 				String jwtChatAccessToken = path.substring(path.lastIndexOf("/") + 1);
-				log.info("jwtChatAccessToken : " + jwtChatAccessToken);
+				// log.info("jwtChatAccessToken : " + jwtChatAccessToken);
 
 				if (ObjectUtils.isEmpty(jwtChatAccessToken)) {
 					throw new RuntimeException("chatAccessToken path param이 공백 문자열입니다.");
 				}
-				if("test".equals(jwtChatAccessToken)){
+				if(jwtChatAccessToken.startsWith("VU")){
 					return exchange.getSession().flatMap(session -> {
 						log.info("{} 번째 입장", index);
 						session.getAttributes().put("Role", Role.MEMBER.toString());
-						session.getAttributes().put("LoginId", "id"+index++);
-						session.getAttributes().put("Nickname", "nickname" + index);
+						session.getAttributes().put("LoginId", jwtChatAccessToken);
+						session.getAttributes().put("Nickname", jwtChatAccessToken);
 						return super.handleRequest(exchange, handler);
 					});
 				}
