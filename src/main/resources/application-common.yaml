@@ -1,4 +1,5 @@
 spring:
+
   kafka:
     bootstrap-servers:
       - 127.0.0.1:10000
@@ -8,6 +9,7 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
 jwt:
   secretKey: ${JWT_SECRET_KEY}
 server:

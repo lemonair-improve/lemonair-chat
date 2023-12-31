@@ -18,8 +18,12 @@ import reactor.core.publisher.Sinks;
 @Service
 @RequiredArgsConstructor
 public class ChatService {
-	private static Map<String, Sinks.Many<Chat>> chatSinkMap = new ConcurrentHashMap<>();
+	private static final Map<String, Sinks.Many<Chat>> chatSinkMap = new ConcurrentHashMap<>();
 	private final ChatRepository chatRepository;
+
+	public Map<String, Sinks.Many<Chat>> getChatSinkMap() {
+		return chatSinkMap;
+	}
 
 	public Flux<Chat> register(String roomId) {
 
@@ -28,25 +32,34 @@ public class ChatService {
 
 		Sinks.Many<Chat> sink = chatSinkMap.computeIfAbsent(roomId,
 			key -> Sinks.many().multicast().onBackpressureBuffer());
-		// log.info("현재 구독자 수 : " + sink.currentSubscriberCount());
+		log.info("현재 구독자 수 : " + sink.currentSubscriberCount());
 		return sink.asFlux();
 	}
 
 	public Mono<Boolean> sendChat(String roomId, Chat chat) {
 		log.info("roomId: {}, sender: {} chatMessage: {}", roomId, chat.getSender(), chat.getMessage());
-		return chatRepository.save(chat).flatMap(savedChat -> {
+		return Mono.just(chat).map(c -> {
 			Sinks.Many<Chat> sink = chatSinkMap.get(roomId);
 			if (sink == null) {
-				return Mono.just(false);
+				return false;
 			}
-
-			sink.tryEmitNext(savedChat);
-			return Mono.just(true);
+			sink.tryEmitNext(c);
+			return true;
 		});
+
+		// return chatRepository.save(chat).flatMap(savedChat -> {
+		// 	Sinks.Many<Chat> sink = chatSinkMap.get(roomId);
+		// 	if (sink == null) {
+		// 		return Mono.just(false);
+		// 	}
+		//
+		// 	sink.tryEmitNext(savedChat);
+		// 	return Mono.just(true);
+		// });
 	}
 
 	public void deRegister(String roomId) {
 		// log.info("deRegister : roomId : {}, 현재 구독자 수 {}",roomId, chatSinkMap.get(roomId).currentSubscriberCount());
-		chatSinkMap.computeIfPresent(roomId, (key, value) -> value.currentSubscriberCount() <=1 ? null : value);
+		chatSinkMap.computeIfPresent(roomId, (key, value) -> value.currentSubscriberCount() <= 1 ? null : value);
 	}
 }

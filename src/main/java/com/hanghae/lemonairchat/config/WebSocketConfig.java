@@ -39,9 +39,9 @@ public class WebSocketConfig {
 				if (ObjectUtils.isEmpty(jwtChatAccessToken)) {
 					throw new RuntimeException("chatAccessToken path param이 공백 문자열입니다.");
 				}
+				// for k6
 				if(jwtChatAccessToken.startsWith("VU")){
 					return exchange.getSession().flatMap(session -> {
-						log.info("{} 번째 입장", index);
 						session.getAttributes().put("Role", Role.MEMBER.toString());
 						session.getAttributes().put("LoginId", jwtChatAccessToken);
 						session.getAttributes().put("Nickname", jwtChatAccessToken);
