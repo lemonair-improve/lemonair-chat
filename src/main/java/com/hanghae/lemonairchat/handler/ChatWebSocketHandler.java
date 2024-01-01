@@ -16,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.SignalType;
+import reactor.core.scheduler.Schedulers;
 
 @RequiredArgsConstructor
 @Component
@@ -42,8 +43,10 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 		log.info("handle roomId : {}", roomId);
 
 		Flux<Chat> chatFlux = chatService.register(roomId);
-		session.receive().doOnNext(WebSocketMessage::retain)
-			// .publishOn(Schedulers.boundedElastic())
+		// retain이 없으면 db에 메세지 공백이나 이상한 값들이 저장됐었음
+		session.receive()
+			.doOnNext(WebSocketMessage::retain)
+			.publishOn(Schedulers.boundedElastic())
 			.doFinally(signalType -> {
 				// WebSocket 연결이 종료될 때의 로직
 				if (signalType == SignalType.ON_COMPLETE || signalType == SignalType.CANCEL) {
@@ -63,7 +66,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 				}
 				return chatService.sendChat(roomId, new Chat(message, nickname, roomId)).flatMap(result -> {
 					if (!result) {
-						return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 요청입니다"));
+						return Mono.error(new RuntimeException("보낸 채팅이 제대로 전송되지 못함"));
 					}
 					return Mono.just(true);
 				});

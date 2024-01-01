@@ -28,7 +28,6 @@ public class WebSocketConfig {
 	@Bean
 	public WebSocketService webSocketService(JwtUtil jwtUtil) {
 		HandshakeWebSocketService webSocketService = new HandshakeWebSocketService() {
-			int index = 0;
 			@Override
 			public Mono<Void> handleRequest(ServerWebExchange exchange, WebSocketHandler handler) {
 				// log.info("exchange.getRequest().getURI().getPath() : " + exchange.getRequest().getURI().getPath());
