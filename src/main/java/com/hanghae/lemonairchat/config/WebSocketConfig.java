@@ -41,7 +41,6 @@ public class WebSocketConfig {
 				}
 				if(jwtChatAccessToken.startsWith("VU")){
 					return exchange.getSession().flatMap(session -> {
-						log.info("{} 번째 입장", index);
 						session.getAttributes().put("Role", Role.MEMBER.toString());
 						session.getAttributes().put("LoginId", jwtChatAccessToken);
 						session.getAttributes().put("Nickname", jwtChatAccessToken);

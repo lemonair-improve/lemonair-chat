@@ -6,3 +6,5 @@ CREATE TABLE chat
     room_id VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+TRUNCATE TABLE chat; # 데이터 전체 삭제

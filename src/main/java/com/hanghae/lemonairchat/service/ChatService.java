@@ -29,11 +29,13 @@ public class ChatService {
 		Sinks.Many<Chat> sink = chatSinkMap.computeIfAbsent(roomId,
 			key -> Sinks.many().multicast().onBackpressureBuffer());
 		// log.info("현재 구독자 수 : " + sink.currentSubscriberCount());
+		log.info("현재 구독자 수: {}", sink.currentSubscriberCount());
 		return sink.asFlux();
 	}
 
 	public Mono<Boolean> sendChat(String roomId, Chat chat) {
 		log.info("roomId: {}, sender: {} chatMessage: {}", roomId, chat.getSender(), chat.getMessage());
+
 		return chatRepository.save(chat).flatMap(savedChat -> {
 			Sinks.Many<Chat> sink = chatSinkMap.get(roomId);
 			if (sink == null) {
