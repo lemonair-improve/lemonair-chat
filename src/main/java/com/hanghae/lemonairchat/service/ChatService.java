@@ -1,8 +1,12 @@
 package com.hanghae.lemonairchat.service;
 
+import com.hanghae.lemonairchat.kafka.KafkaChatConsumer;
+import com.hanghae.lemonairchat.kafka.KafkaChatProducer;
+import com.hanghae.lemonairchat.kafka.KafkaTopicManager;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import com.hanghae.lemonairchat.entity.Chat;
@@ -19,16 +23,17 @@ import reactor.core.publisher.Sinks;
 @RequiredArgsConstructor
 public class ChatService {
 	private static Map<String, Sinks.Many<Chat>> chatSinkMap = new ConcurrentHashMap<>();
+	private final KafkaTopicManager kafkaTopicManager;
+	private final KafkaChatProducer kafkaChatProducer;
+	private final KafkaChatConsumer kafkaChatConsumer;
+	private final KafkaTemplate<String, Chat> kafkaTemplate;
+
 	private final ChatRepository chatRepository;
 
 	public Flux<Chat> register(String roomId) {
 
-		// log.info("register roomId: {}", roomId);
-		// TODO: 2023-12-28 여기가 수상하다.
-
 		Sinks.Many<Chat> sink = chatSinkMap.computeIfAbsent(roomId,
 			key -> Sinks.many().multicast().onBackpressureBuffer());
-		// log.info("현재 구독자 수 : " + sink.currentSubscriberCount());
 		log.info("현재 구독자 수: {}", sink.currentSubscriberCount());
 		return sink.asFlux();
 	}
@@ -45,6 +50,12 @@ public class ChatService {
 			sink.tryEmitNext(savedChat);
 			return Mono.just(true);
 		});
+	}
+
+	Mono<Void> sendToKafka(String roomId, Chat chat) {
+		return chatRepository.save(chat)
+			.flatMap(savedChat -> Mono.fromRunnable(() -> kafkaTemplate.send("chat-" + roomId, savedChat)))
+			.then();
 	}
 
 	public void deRegister(String roomId) {

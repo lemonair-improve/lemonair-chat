@@ -1,6 +1,14 @@
 package com.hanghae.lemonairchat.handler;
 
+import com.hanghae.lemonairchat.kafka.KafkaChatConsumer;
+import com.hanghae.lemonairchat.kafka.KafkaTopicManager;
+import com.hanghae.lemonairchat.repository.ChatRepository;
+import java.time.Duration;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.springframework.http.HttpStatus;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.socket.WebSocketHandler;
 import org.springframework.web.reactive.socket.WebSocketMessage;
@@ -23,6 +31,10 @@ import reactor.core.scheduler.Schedulers;
 @Slf4j
 public class ChatWebSocketHandler implements WebSocketHandler {
 	private final ChatService chatService;
+	private final ChatRepository chatRepository;
+	private final KafkaTopicManager kafkaTopicManager;
+	private final KafkaChatConsumer kafkaChatConsumer;
+	private final KafkaTemplate<String, Chat> kafkaTemplate;
 
 	@Override
 	public Mono<Void> handle(WebSocketSession session) {
@@ -42,39 +54,74 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 
 		// log.info("handle roomId : {}", roomId);
 
-		Flux<Chat> chatFlux = chatService.register(roomId);
-		session.receive().doOnNext(WebSocketMessage::retain).publishOn(Schedulers.boundedElastic()).doFinally(signalType -> {
-			if (signalType == SignalType.CANCEL) {
-				log.info("WebSocket 연결 실패");
-			}
-			// WebSocket 연결이 종료될 때의 로직
-			if (signalType == SignalType.ON_COMPLETE) {
-				log.info("WebSocket 연결이 종료되었습니다.");
-				session.close().subscribe();
-				chatService.deRegister(roomId);
-			}
-		}).flatMap(webSocketMessage -> {
-			String message = webSocketMessage.getPayloadAsText();
-			if (Role.NOT_LOGIN.toString().equals(role)) {
-				return Mono.just(true);
-			}
+//		Flux<Chat> chatFlux = chatService.register(roomId);
+//		session.receive().doOnNext(WebSocketMessage::retain).publishOn(Schedulers.boundedElastic()).doFinally(signalType -> {
+//			if (signalType == SignalType.CANCEL) {
+//				log.info("WebSocket 연결 실패");
+//			}
+//			// WebSocket 연결이 종료될 때의 로직
+//			if (signalType == SignalType.ON_COMPLETE) {
+//				log.info("WebSocket 연결이 종료되었습니다.");
+//				session.close().subscribe();
+//				chatService.deRegister(roomId);
+//			}
+//		}).flatMap(webSocketMessage -> {
+//			String message = webSocketMessage.getPayloadAsText();
+//			if (Role.NOT_LOGIN.toString().equals(role)) {
+//				return Mono.just(true);
+//			}
+//
+//			return chatService.sendChat(roomId, new Chat(message, nickname, roomId)).flatMap(result -> {
+//				if (!result) {
+//					return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 요청입니다"));
+//				}
+//				return Mono.just(true);
+//			});
+//		}).subscribe();
 
-			return chatService.sendChat(roomId, new Chat(message, nickname, roomId)).flatMap(result -> {
-				if (!result) {
-					return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 요청입니다"));
+
+
+//		return session.send(chatFlux.map(chat -> session.textMessage(chat.getSender() + ": " + chat.getMessage())));
+		return kafkaTopicManager.createTopic(roomId, 3, (short) 1)
+			.then(Mono.defer(() -> doWebSocketLogic(session, roomId, nickname)
+				.then(sendToKafka(session, roomId, nickname))));
+
+	}
+
+	private Mono<Void> doWebSocketLogic(WebSocketSession session, String roomId, String nickname) {
+		log.info("doWebSocketLogic");
+		KafkaConsumer<String, Chat> consumer = kafkaChatConsumer.createConsumer(roomId, nickname);
+
+		return Mono.fromRunnable(() -> {
+			try {
+				while (true) {
+					ConsumerRecords<String, Chat> records = consumer.poll(Duration.ofMillis(100));
+					for (ConsumerRecord<String, Chat> record : records) {
+						log.info("record.value() : {}", record.value());
+						Chat chat = record.value();
+						session.send(Mono.just(session.textMessage(chat.getSender() + ": " + chat.getMessage())))
+							.then()
+							.subscribe();
+					}
+					consumer.commitSync();
 				}
-				return Mono.just(true);
-			});
-		}).subscribe();
+			} finally {
+				consumer.close();
+			}
+		});
+	}
 
-
-
-
-
-//		if (!Role.NOT_LOGIN.toString().equals(role)) {
-//			chatService.sendChat(roomId, new Chat(nickname + "님 채팅방에 오신 것을 환영합니다", "system", roomId)).subscribe();
-//		}
-
-		return session.send(chatFlux.map(chat -> session.textMessage(chat.getSender() + ": " + chat.getMessage())));
+	public Mono<Void> sendToKafka(WebSocketSession session, String roomId, String nickname) {
+		log.info("sendToKafka");
+		return session.receive()
+			.flatMap(webSocketMessage -> {
+				String message = webSocketMessage.getPayloadAsText();
+				log.info("message : {}", message);
+				Chat chat = new Chat(message, nickname, roomId);
+				return chatRepository.save(chat)
+					.flatMap(savedChat -> Mono.fromRunnable(() -> kafkaTemplate.send(roomId, savedChat)))
+					.then();
+			})
+			.then();
 	}
 }
