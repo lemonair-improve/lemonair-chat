@@ -2,6 +2,7 @@ package com.hanghae.lemonairchat.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.reactive.socket.WebSocketHandler;
 import org.springframework.web.reactive.socket.server.WebSocketService;
@@ -28,15 +29,24 @@ public class WebSocketConfig {
 	@Bean
 	public WebSocketService webSocketService(JwtUtil jwtUtil) {
 		HandshakeWebSocketService webSocketService = new HandshakeWebSocketService() {
+			int index = 0;
 			@Override
 			public Mono<Void> handleRequest(ServerWebExchange exchange, WebSocketHandler handler) {
-				log.info("exchange.getRequest().getURI().getPath() : " + exchange.getRequest().getURI().getPath());
+				// log.info("exchange.getRequest().getURI().getPath() : " + exchange.getRequest().getURI().getPath());
 				String path = exchange.getRequest().getURI().getPath();
 				String jwtChatAccessToken = path.substring(path.lastIndexOf("/") + 1);
-				log.info("jwtChatAccessToken : " + jwtChatAccessToken);
+				// log.info("jwtChatAccessToken : " + jwtChatAccessToken);
 
 				if (ObjectUtils.isEmpty(jwtChatAccessToken)) {
 					throw new RuntimeException("chatAccessToken path param이 공백 문자열입니다.");
+				}
+				if(jwtChatAccessToken.startsWith("VU")){
+					return exchange.getSession().flatMap(session -> {
+						session.getAttributes().put("Role", Role.MEMBER.toString());
+						session.getAttributes().put("LoginId", jwtChatAccessToken);
+						session.getAttributes().put("Nickname", jwtChatAccessToken);
+						return super.handleRequest(exchange, handler);
+					});
 				}
 				if (!"notlogin".equals(jwtChatAccessToken)) {
 
