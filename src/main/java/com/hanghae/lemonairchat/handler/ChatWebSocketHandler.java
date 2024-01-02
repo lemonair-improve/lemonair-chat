@@ -2,13 +2,14 @@ package com.hanghae.lemonairchat.handler;
 
 import com.hanghae.lemonairchat.entity.Chat;
 import com.hanghae.lemonairchat.kafka.KafkaConsumerService;
+
 import com.hanghae.lemonairchat.kafka.KafkaTopicManager;
 import com.hanghae.lemonairchat.repository.ChatRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.http.HttpStatus;
-import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.reactive.ReactiveKafkaConsumerTemplate;
 import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
 import org.springframework.stereotype.Component;
@@ -26,6 +27,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 	private final KafkaTopicManager kafkaTopicManager;
 	private final KafkaConsumerService kafkaConsumerService;
 	private final ReactiveKafkaProducerTemplate<String, Chat> reactiveKafkaProducerTemplate;
+
 
 
 	@Override
@@ -46,6 +48,18 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 
 		kafkaTopicManager.createTopic(roomId, 3, (short) 1);
 		ReactiveKafkaConsumerTemplate<String, Chat> consumer = kafkaConsumerService.reactiveKafkaConsumerTemplate(roomId);
+		log.info("consumer: {}", consumer);
+
+		consumer.receiveAutoAck()
+			.map(ConsumerRecord::value)
+			// .publishOn(Schedulers.boundedElastic())
+			.flatMap(chat -> {
+				log.info("successfully consumed {}={}", Chat.class.getSimpleName(), chat);
+				return session.send(Mono.just(session.textMessage(chat.getMessage())))
+					.log()
+					.doOnError(throwable -> log.error(" 메세지 전송중 에러 발생 : {}", throwable.getMessage()));
+			})
+			.doOnError(throwable -> log.error("something bad happened while consuming : {}", throwable.getMessage())).subscribe();
 
 		return session.receive()
 			.flatMap(webSocketMessage -> {
@@ -58,49 +72,5 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 			.then();
 
 
-		return consumer.receiveAutoAck() //
-			.map(ConsumerRecord::value)
-			// .publishOn(Schedulers.boundedElastic())
-			.flatMap(chat -> {
-				log.info("successfully consumed {}={}", Chat.class.getSimpleName(), chat);
-				return session.send(Mono.just(session.textMessage(chat.getMessage())))
-					.log()
-					.doOnError(throwable -> log.error(" 메세지 전송중 에러 발생 : {}", throwable.getMessage()));
-			})
-			.doOnError(throwable -> log.error("something bad happened while consuming : {}", throwable.getMessage()))
-			.log()
-			.then();
-
-//		return chatConsumerService.consumeAndSendWebSocketMessages(roomId);
 	}
-
-//	private Mono<Void> doWebSocketLogic(WebSocketSession session, String roomId) {
-//		KafkaConsumer<String, Chat> consumer = kafkaChatConsumer.createConsumer(roomId);
-//
-//		ConsumerRecords<String, Chat> records = consumer.poll();
-//
-//		for (ConsumerRecord<String, Chat> record : records) {
-//			// 메시지 처리
-//			Chat chatMessage = record.value();
-//			// 받은 채팅 메시지를 처리하는 로직을 여기에 추가하세요
-//			System.out.println("Received message: " + chatMessage);
-//			return session.send(session.textMessage(chatMessage.getSender()) + ": " + chatMessage.getMessage());
-//		}
-//		return Mono.empty();
-//	}
-
-//	public Mono<Void> sendToKafka(WebSocketSession session, String roomId, String nickname) {
-//		log.info("sendToKafka");
-//
-//		return session.receive()
-//			.flatMap(webSocketMessage -> {
-//				String message = webSocketMessage.getPayloadAsText();
-//				log.info("message : {}", message);
-//				Chat chat = new Chat(message, nickname, roomId);
-//				return chatRepository.save(chat)
-//					.flatMap(savedChat -> Mono.fromRunnable(() -> kafkaTemplate.send(roomId, savedChat)))
-//					.then();
-//			})
-//			.then();
-//	}
 }
