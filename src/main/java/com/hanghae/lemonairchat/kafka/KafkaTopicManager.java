@@ -2,6 +2,7 @@ package com.hanghae.lemonairchat.kafka;
 
 import java.util.Collections;
 import java.util.Properties;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
@@ -11,6 +12,7 @@ import reactor.core.publisher.Mono;
 
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class KafkaTopicManager {
 
     private final AdminClient adminClient;

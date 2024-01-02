@@ -1,24 +1,17 @@
 package com.hanghae.lemonairchat.handler;
 
 import com.hanghae.lemonairchat.entity.Chat;
-import com.hanghae.lemonairchat.kafka.KafkaChatConsumer;
 import com.hanghae.lemonairchat.kafka.KafkaTopicManager;
 import com.hanghae.lemonairchat.repository.ChatRepository;
-import com.hanghae.lemonairchat.service.ChatConsumerService;
-import com.hanghae.lemonairchat.service.ChatService;
-import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.springframework.http.HttpStatus;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.socket.WebSocketHandler;
 import org.springframework.web.reactive.socket.WebSocketSession;
 import org.springframework.web.server.ResponseStatusException;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 
@@ -26,12 +19,9 @@ import reactor.core.publisher.Mono;
 @Component
 @Slf4j
 public class ChatWebSocketHandler implements WebSocketHandler {
-	private final ChatService chatService;
-	private final ChatConsumerService chatConsumerService;
 	private final ChatRepository chatRepository;
 	private final KafkaTopicManager kafkaTopicManager;
-	private final KafkaChatConsumer kafkaChatConsumer;
-	private final KafkaTemplate<String, Chat> kafkaTemplate;
+	private final ReactiveKafkaProducerTemplate<String, Chat> reactiveKafkaProducerTemplate;
 
 
 	@Override
@@ -55,15 +45,14 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 		return session.receive()
 			.flatMap(webSocketMessage -> {
 				String message = webSocketMessage.getPayloadAsText();
-				log.info("message : {}", message);
+				log.info("Received message: {}", message);
 				Chat chat = new Chat(message, nickname, roomId);
 				return chatRepository.save(chat)
-					.flatMap(savedChat -> Mono.fromRunnable(() -> kafkaTemplate.send(roomId, savedChat)))
-					.then();
+					.flatMap(savedChat -> reactiveKafkaProducerTemplate.send(roomId, savedChat).then());
 			})
 			.then();
 
-		return chatConsumerService.consumeAndSendWebSocketMessages(roomId);
+//		return chatConsumerService.consumeAndSendWebSocketMessages(roomId);
 	}
 
 //	private Mono<Void> doWebSocketLogic(WebSocketSession session, String roomId) {

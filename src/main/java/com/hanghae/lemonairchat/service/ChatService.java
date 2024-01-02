@@ -1,19 +1,14 @@
 package com.hanghae.lemonairchat.service;
 
-import com.hanghae.lemonairchat.kafka.KafkaChatConsumer;
-import com.hanghae.lemonairchat.kafka.KafkaChatProducer;
+import com.hanghae.lemonairchat.entity.Chat;
 import com.hanghae.lemonairchat.kafka.KafkaTopicManager;
+import com.hanghae.lemonairchat.repository.ChatRepository;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.stereotype.Service;
-
-import com.hanghae.lemonairchat.entity.Chat;
-import com.hanghae.lemonairchat.repository.ChatRepository;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
@@ -24,8 +19,6 @@ import reactor.core.publisher.Sinks;
 public class ChatService {
 	private static Map<String, Sinks.Many<Chat>> chatSinkMap = new ConcurrentHashMap<>();
 	private final KafkaTopicManager kafkaTopicManager;
-	private final KafkaChatProducer kafkaChatProducer;
-	private final KafkaChatConsumer kafkaChatConsumer;
 	private final KafkaTemplate<String, Chat> kafkaTemplate;
 
 	private final ChatRepository chatRepository;
