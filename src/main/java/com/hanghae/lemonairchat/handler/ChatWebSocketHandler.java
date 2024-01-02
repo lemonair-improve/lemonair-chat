@@ -1,12 +1,15 @@
 package com.hanghae.lemonairchat.handler;
 
 import com.hanghae.lemonairchat.entity.Chat;
+import com.hanghae.lemonairchat.kafka.KafkaConsumerService;
 import com.hanghae.lemonairchat.kafka.KafkaTopicManager;
 import com.hanghae.lemonairchat.repository.ChatRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.http.HttpStatus;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.core.reactive.ReactiveKafkaConsumerTemplate;
 import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.socket.WebSocketHandler;
@@ -21,6 +24,7 @@ import reactor.core.publisher.Mono;
 public class ChatWebSocketHandler implements WebSocketHandler {
 	private final ChatRepository chatRepository;
 	private final KafkaTopicManager kafkaTopicManager;
+	private final KafkaConsumerService kafkaConsumerService;
 	private final ReactiveKafkaProducerTemplate<String, Chat> reactiveKafkaProducerTemplate;
 
 
@@ -41,6 +45,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 		}
 
 		kafkaTopicManager.createTopic(roomId, 3, (short) 1);
+		ReactiveKafkaConsumerTemplate<String, Chat> consumer = kafkaConsumerService.reactiveKafkaConsumerTemplate(roomId);
 
 		return session.receive()
 			.flatMap(webSocketMessage -> {
@@ -50,6 +55,20 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 				return chatRepository.save(chat)
 					.flatMap(savedChat -> reactiveKafkaProducerTemplate.send(roomId, savedChat).then());
 			})
+			.then();
+
+
+		return consumer.receiveAutoAck() //
+			.map(ConsumerRecord::value)
+			// .publishOn(Schedulers.boundedElastic())
+			.flatMap(chat -> {
+				log.info("successfully consumed {}={}", Chat.class.getSimpleName(), chat);
+				return session.send(Mono.just(session.textMessage(chat.getMessage())))
+					.log()
+					.doOnError(throwable -> log.error(" 메세지 전송중 에러 발생 : {}", throwable.getMessage()));
+			})
+			.doOnError(throwable -> log.error("something bad happened while consuming : {}", throwable.getMessage()))
+			.log()
 			.then();
 
 //		return chatConsumerService.consumeAndSendWebSocketMessages(roomId);
