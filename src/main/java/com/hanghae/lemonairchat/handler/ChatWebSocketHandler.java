@@ -51,8 +51,8 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 				// WebSocket 연결이 종료될 때의 로직
 				if (signalType == SignalType.ON_COMPLETE || signalType == SignalType.CANCEL) {
 					log.info("WebSocket 연결이 종료되었습니다.");
-					session.close().subscribe();
 					chatService.deRegister(roomId);
+					session.close().subscribe();
 				}
 			})
 			// .publishOn(Schedulers.boundedElastic())
