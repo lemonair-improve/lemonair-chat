@@ -12,19 +12,19 @@ import org.springframework.stereotype.Service;
 public class KafkaChatConsumer {
 
     private final Properties properties;
-//    private final String groupId = "chat-consumer-group";
+    private final String groupId = "chat-consumer-group" + UUID.randomUUID();
 
     public KafkaChatConsumer() {
         properties = new Properties();
         properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9091,localhost:9092,localhost:9093");
-//        properties.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+        properties.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
         properties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
         properties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
-        properties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        properties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
     }
 
-    public KafkaConsumer<String, Chat> createConsumer(String roomId, String nickname) {
-        properties.put(ConsumerConfig.GROUP_ID_CONFIG, roomId + "-" + nickname + UUID.randomUUID());
+    public KafkaConsumer<String, Chat> createConsumer(String roomId) {
+//        properties.put(ConsumerConfig.GROUP_ID_CONFIG, roomId + "-" + nickname + UUID.randomUUID());
         KafkaConsumer<String, Chat> consumer = new KafkaConsumer<>(properties);
         consumer.subscribe(Collections.singletonList(roomId));
         return consumer;

@@ -1,9 +1,14 @@
 package com.hanghae.lemonairchat.handler;
 
+import com.hanghae.lemonairchat.entity.Chat;
 import com.hanghae.lemonairchat.kafka.KafkaChatConsumer;
 import com.hanghae.lemonairchat.kafka.KafkaTopicManager;
 import com.hanghae.lemonairchat.repository.ChatRepository;
+import com.hanghae.lemonairchat.service.ChatConsumerService;
+import com.hanghae.lemonairchat.service.ChatService;
 import java.time.Duration;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -11,30 +16,23 @@ import org.springframework.http.HttpStatus;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.socket.WebSocketHandler;
-import org.springframework.web.reactive.socket.WebSocketMessage;
 import org.springframework.web.reactive.socket.WebSocketSession;
 import org.springframework.web.server.ResponseStatusException;
-
-import com.hanghae.lemonairchat.constants.Role;
-import com.hanghae.lemonairchat.entity.Chat;
-import com.hanghae.lemonairchat.service.ChatService;
-
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.SignalType;
-import reactor.core.scheduler.Schedulers;
+
 
 @RequiredArgsConstructor
 @Component
 @Slf4j
 public class ChatWebSocketHandler implements WebSocketHandler {
 	private final ChatService chatService;
+	private final ChatConsumerService chatConsumerService;
 	private final ChatRepository chatRepository;
 	private final KafkaTopicManager kafkaTopicManager;
 	private final KafkaChatConsumer kafkaChatConsumer;
 	private final KafkaTemplate<String, Chat> kafkaTemplate;
+
 
 	@Override
 	public Mono<Void> handle(WebSocketSession session) {
@@ -52,67 +50,8 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 			return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 경로입니다"));
 		}
 
-		// log.info("handle roomId : {}", roomId);
+		kafkaTopicManager.createTopic(roomId, 3, (short) 1);
 
-//		Flux<Chat> chatFlux = chatService.register(roomId);
-//		session.receive().doOnNext(WebSocketMessage::retain).publishOn(Schedulers.boundedElastic()).doFinally(signalType -> {
-//			if (signalType == SignalType.CANCEL) {
-//				log.info("WebSocket 연결 실패");
-//			}
-//			// WebSocket 연결이 종료될 때의 로직
-//			if (signalType == SignalType.ON_COMPLETE) {
-//				log.info("WebSocket 연결이 종료되었습니다.");
-//				session.close().subscribe();
-//				chatService.deRegister(roomId);
-//			}
-//		}).flatMap(webSocketMessage -> {
-//			String message = webSocketMessage.getPayloadAsText();
-//			if (Role.NOT_LOGIN.toString().equals(role)) {
-//				return Mono.just(true);
-//			}
-//
-//			return chatService.sendChat(roomId, new Chat(message, nickname, roomId)).flatMap(result -> {
-//				if (!result) {
-//					return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 요청입니다"));
-//				}
-//				return Mono.just(true);
-//			});
-//		}).subscribe();
-
-
-
-//		return session.send(chatFlux.map(chat -> session.textMessage(chat.getSender() + ": " + chat.getMessage())));
-		return kafkaTopicManager.createTopic(roomId, 3, (short) 1)
-			.then(Mono.defer(() -> doWebSocketLogic(session, roomId, nickname)
-				.then(sendToKafka(session, roomId, nickname))));
-
-	}
-
-	private Mono<Void> doWebSocketLogic(WebSocketSession session, String roomId, String nickname) {
-		log.info("doWebSocketLogic");
-		KafkaConsumer<String, Chat> consumer = kafkaChatConsumer.createConsumer(roomId, nickname);
-
-		return Mono.fromRunnable(() -> {
-			try {
-				while (true) {
-					ConsumerRecords<String, Chat> records = consumer.poll(Duration.ofMillis(100));
-					for (ConsumerRecord<String, Chat> record : records) {
-						log.info("record.value() : {}", record.value());
-						Chat chat = record.value();
-						session.send(Mono.just(session.textMessage(chat.getSender() + ": " + chat.getMessage())))
-							.then()
-							.subscribe();
-					}
-					consumer.commitSync();
-				}
-			} finally {
-				consumer.close();
-			}
-		});
-	}
-
-	public Mono<Void> sendToKafka(WebSocketSession session, String roomId, String nickname) {
-		log.info("sendToKafka");
 		return session.receive()
 			.flatMap(webSocketMessage -> {
 				String message = webSocketMessage.getPayloadAsText();
@@ -123,5 +62,37 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 					.then();
 			})
 			.then();
+
+		return chatConsumerService.consumeAndSendWebSocketMessages(roomId);
 	}
+
+//	private Mono<Void> doWebSocketLogic(WebSocketSession session, String roomId) {
+//		KafkaConsumer<String, Chat> consumer = kafkaChatConsumer.createConsumer(roomId);
+//
+//		ConsumerRecords<String, Chat> records = consumer.poll();
+//
+//		for (ConsumerRecord<String, Chat> record : records) {
+//			// 메시지 처리
+//			Chat chatMessage = record.value();
+//			// 받은 채팅 메시지를 처리하는 로직을 여기에 추가하세요
+//			System.out.println("Received message: " + chatMessage);
+//			return session.send(session.textMessage(chatMessage.getSender()) + ": " + chatMessage.getMessage());
+//		}
+//		return Mono.empty();
+//	}
+
+//	public Mono<Void> sendToKafka(WebSocketSession session, String roomId, String nickname) {
+//		log.info("sendToKafka");
+//
+//		return session.receive()
+//			.flatMap(webSocketMessage -> {
+//				String message = webSocketMessage.getPayloadAsText();
+//				log.info("message : {}", message);
+//				Chat chat = new Chat(message, nickname, roomId);
+//				return chatRepository.save(chat)
+//					.flatMap(savedChat -> Mono.fromRunnable(() -> kafkaTemplate.send(roomId, savedChat)))
+//					.then();
+//			})
+//			.then();
+//	}
 }
