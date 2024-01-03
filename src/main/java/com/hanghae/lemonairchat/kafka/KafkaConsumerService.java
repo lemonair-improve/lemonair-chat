@@ -27,6 +27,7 @@ public class KafkaConsumerService {
         Map<String, Object> config = new HashMap<>();
         config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServer);
         config.put(ConsumerConfig.GROUP_ID_CONFIG, "chat-consumer-group" + UUID.randomUUID());
+        config.put(ConsumerConfig.GROUP_INSTANCE_ID_CONFIG,("LemonairHaHaHa"+UUID.randomUUID())); // group instance id를 지정하면 rejoin 안해도 됨
         config.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
         config.put(JsonDeserializer.TRUSTED_PACKAGES,"*");
         config.put(JsonDeserializer.VALUE_DEFAULT_TYPE, Chat.class);
