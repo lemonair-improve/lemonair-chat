@@ -3,4 +3,5 @@ spring:
     active: local
     include: common
     group:
+      deploy:
       local:
