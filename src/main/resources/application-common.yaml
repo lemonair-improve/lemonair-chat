@@ -1,14 +1,16 @@
-#spring:
-#  kafka:
-#    bootstrap-servers:
-#      - 127.0.0.1:10000
-#      - 127.0.0.1:10001
-#      - 127.0.0.1:10002
-#
-#    producer:
-#      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-#      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+spring:
+  kafka:
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 jwt:
   secretKey: ${JWT_SECRET_KEY}
 server:
   port: 8082
+
+logging:
+  level:
+    org.springframework.kafka: error

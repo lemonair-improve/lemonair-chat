@@ -1,0 +1,9 @@
+spring:
+  r2dbc:
+    url: r2dbc:mysql://remonair.coz5fd67jrj0.ap-northeast-2.rds.amazonaws.com/lemonair
+    username: admin
+    password: lemonair123
+
+  kafka:
+    bootstrap-servers: kafka1:9091,kafka2:9092,kafka3:9093
+    admin-client: kafka1:9091

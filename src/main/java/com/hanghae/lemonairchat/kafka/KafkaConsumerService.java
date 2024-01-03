@@ -14,7 +14,8 @@ import reactor.kafka.receiver.ReceiverOptions;
 
 @Service
 public class KafkaConsumerService {
-    private String bootstrapServer = "localhost:9091,localhost:9092,localhost:9093";
+    @Value("${spring.kafka.bootstrap-servers}")
+    private String bootstrapServer;
 
     @Value("${spring.kafka.consumer.key-deserializer}")
     private String keyDeserializer;

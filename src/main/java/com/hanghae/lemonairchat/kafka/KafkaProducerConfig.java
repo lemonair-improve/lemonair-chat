@@ -16,7 +16,8 @@ import reactor.kafka.sender.SenderOptions;
 
 @Configuration
 public class KafkaProducerConfig {
-    private String bootstrapServer = "localhost:9091,localhost:9092,localhost:9093";
+    @Value("${spring.kafka.bootstrap-servers}")
+    private String bootstrapServer;
 
     @Value("${spring.kafka.producer.key-serializer}")
     private String keySerializer;

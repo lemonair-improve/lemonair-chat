@@ -2,14 +2,12 @@ package com.hanghae.lemonairchat.handler;
 
 import com.hanghae.lemonairchat.entity.Chat;
 import com.hanghae.lemonairchat.kafka.KafkaConsumerService;
-
 import com.hanghae.lemonairchat.kafka.KafkaTopicManager;
 import com.hanghae.lemonairchat.repository.ChatRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.http.HttpStatus;
-import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.reactive.ReactiveKafkaConsumerTemplate;
 import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
 import org.springframework.stereotype.Component;
@@ -48,14 +46,13 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 
 		kafkaTopicManager.createTopic(roomId, 3, (short) 1);
 		ReactiveKafkaConsumerTemplate<String, Chat> consumer = kafkaConsumerService.reactiveKafkaConsumerTemplate(roomId);
-		log.info("consumer: {}", consumer);
+//		log.info("consumer: {}", consumer);
 
 		consumer.receiveAutoAck()
 			.map(ConsumerRecord::value)
-			// .publishOn(Schedulers.boundedElastic())
 			.flatMap(chat -> {
-				log.info("successfully consumed {}={}", Chat.class.getSimpleName(), chat);
-				return session.send(Mono.just(session.textMessage(chat.getMessage())))
+//				log.info("successfully consumed {}={}", Chat.class.getSimpleName(), chat);
+				return session.send(Mono.just(session.textMessage(chat.getSender() + ":" + chat.getMessage())))
 					.log()
 					.doOnError(throwable -> log.error(" 메세지 전송중 에러 발생 : {}", throwable.getMessage()));
 			})
@@ -64,13 +61,11 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 		return session.receive()
 			.flatMap(webSocketMessage -> {
 				String message = webSocketMessage.getPayloadAsText();
-				log.info("Received message: {}", message);
+//				log.info("Received message: {}", message);
 				Chat chat = new Chat(message, nickname, roomId);
 				return chatRepository.save(chat)
 					.flatMap(savedChat -> reactiveKafkaProducerTemplate.send(roomId, savedChat).then());
 			})
 			.then();
-
-
 	}
 }
