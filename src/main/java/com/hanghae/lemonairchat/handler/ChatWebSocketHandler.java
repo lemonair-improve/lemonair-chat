@@ -34,9 +34,8 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 		final String role = (String)session.getAttributes().get("Role");
 		final String nickname = (String)session.getAttributes().getOrDefault("Nickname", "익명의 사용자");
 		final String roomId;
-		// final String
+    
 		String getUrl = session.getHandshakeInfo().getUri().getPath();
-
 		String[] pathSegments = getUrl.split("/");
 
 		if (pathSegments.length > 2) {
@@ -45,36 +44,22 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 			return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 경로입니다"));
 		}
 
-		kafkaTopicManager.createTopic(roomId, 3, (short)1);
-		ReactiveKafkaConsumerTemplate<String, Chat> consumer = kafkaConsumerService.reactiveKafkaConsumerTemplate(
-			roomId);
+		kafkaTopicManager.createTopic(roomId, 3, (short) 1);
+		ReactiveKafkaConsumerTemplate<String, Chat> consumer = kafkaConsumerService.reactiveKafkaConsumerTemplate(roomId);
 		// log.info("consumer: {}", consumer);
-
-
 
 		consumer.receiveAutoAck()
 			.map(ConsumerRecord::value)
-			// .publishOn(Schedulers.boundedElastic())
 			.flatMap(chat -> {
-				// log.info("successfully consumed {}={}", Chat.class.getSimpleName(), chat);
-				return session.send(Mono.just(session.textMessage(chat.getMessage())))
-					// .log()
+  		  //log.info("successfully consumed {}={}", Chat.class.getSimpleName(), chat);
+				return session.send(Mono.just(session.textMessage(chat.getSender() + ":" + chat.getMessage())))
+					.log()
 					.doOnError(throwable -> log.error(" 메세지 전송중 에러 발생 : {}", throwable.getMessage()));
 			})
 			.doOnError(throwable -> log.error("something bad happened while consuming : {}", throwable.getMessage()))
 			.subscribe();
 
-		Flux<TopicPartition> resultOfAssignment = consumer.assignment();
-		resultOfAssignment.subscribe( result ->{
-			System.out.println(result.topic());
-		});
-
-		return consumer.assignment()
-			.doOnNext(result -> {
-				// 파티션 할당 정보를 출력
-				System.out.println("서병렬의 로그 Assigned to partition: " + result.topic());
-			})
-			.thenMany(session.receive())
+		return session.receive()
 			.flatMap(webSocketMessage -> {
 				String message = webSocketMessage.getPayloadAsText();
 				Chat chat = new Chat(message, nickname, roomId);
@@ -82,18 +67,5 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 					.flatMap(savedChat -> reactiveKafkaProducerTemplate.send(roomId, savedChat).then());
 			})
 			.then();
-
-
-		// 원본 보존
-
-		// return session.receive().flatMap(webSocketMessage -> {
-		// 	String message = webSocketMessage.getPayloadAsText();
-		// 	// log.info("Received message: {}", message);
-		// 	Chat chat = new Chat(message, nickname, roomId);
-		// 	return chatRepository.save(chat)
-		// 		.flatMap(savedChat -> reactiveKafkaProducerTemplate.send(roomId, savedChat).then());
-		// }).then();
-
-
 	}
 }
