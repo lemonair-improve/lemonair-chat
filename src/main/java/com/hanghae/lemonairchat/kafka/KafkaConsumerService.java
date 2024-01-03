@@ -26,7 +26,7 @@ public class KafkaConsumerService {
         Map<String, Object> config = new HashMap<>();
         config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServer);
         config.put(ConsumerConfig.GROUP_ID_CONFIG, "chat-consumer-group" + UUID.randomUUID()); // group id 지정
-        // config.put(ConsumerConfig.GROUP_INSTANCE_ID_CONFIG,("SchedulerCoordinator"+UUID.randomUUID())); // group instance id를 지정하면 rejoin 안해도 됨
+        config.put(ConsumerConfig.GROUP_INSTANCE_ID_CONFIG,("SchedulerCoordinator"+UUID.randomUUID())); // group instance id를 지정하면 rejoin 안해도 됨
         config.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, keyDeserializer); // key deserializer를 정의한다 consume할때 byte array를 객체로 변환해야함
         config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, valueDeserializer);// value deserializer를 정의한다 ``
         config.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
