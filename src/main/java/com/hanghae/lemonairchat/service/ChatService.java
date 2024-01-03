@@ -38,24 +38,24 @@ public class ChatService {
 
 	public Mono<Boolean> sendChat(String roomId, Chat chat) {
 		log.info("roomId: {}, sender: {} chatMessage: {}", roomId, chat.getSender(), chat.getMessage());
-		// return Mono.just(chat).map(c -> {
-		// 	Sinks.Many<Chat> sink = chatSinkMap.get(roomId);
-		// 	if (sink == null) {
-		// 		return false;
-		// 	}
-		// 	sink.tryEmitNext(c);
-		// 	return true;
-		// });
-
-		return chatRepository.save(chat).flatMap(savedChat -> {
+		return Mono.just(chat).map(c -> {
 			Sinks.Many<Chat> sink = chatSinkMap.get(roomId);
 			if (sink == null) {
-				return Mono.just(false);
+				return false;
 			}
-
-			sink.tryEmitNext(savedChat);
-			return Mono.just(true);
+			sink.tryEmitNext(c);
+			return true;
 		});
+		//
+		// return chatRepository.save(chat).flatMap(savedChat -> {
+		// 	Sinks.Many<Chat> sink = chatSinkMap.get(roomId);
+		// 	if (sink == null) {
+		// 		return Mono.just(false);
+		// 	}
+		//
+		// 	sink.tryEmitNext(savedChat);
+		// 	return Mono.just(true);
+		// });
 	}
 
 	public void deRegister(String roomId) {
