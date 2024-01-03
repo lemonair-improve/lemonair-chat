@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.reactive.ReactiveKafkaConsumerTemplate;
@@ -13,8 +14,11 @@ import org.springframework.stereotype.Service;
 import reactor.kafka.receiver.ReceiverOptions;
 
 @Service
+@Slf4j
 public class KafkaConsumerService {
-    private String bootstrapServer = "localhost:9091,localhost:9092,localhost:9093";
+
+    @Value("${spring.kafka.bootstrap-servers}")
+    private String bootstrapServer;
 
     @Value("${spring.kafka.consumer.key-deserializer}")
     private String keyDeserializer;

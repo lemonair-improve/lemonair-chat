@@ -1,5 +1,6 @@
 package com.hanghae.lemonairchat.kafka;
 
+import jakarta.annotation.PostConstruct;
 import java.util.Collections;
 import java.util.Properties;
 import lombok.RequiredArgsConstructor;
@@ -16,14 +17,15 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class KafkaTopicManager {
 
-    private final AdminClient adminClient;
-
     @Value("${spring.kafka.admin-client}")
     private String adminClientHost;
-    public KafkaTopicManager() {
+
+    private AdminClient adminClient;
+
+    @PostConstruct
+    public void initilize() {
         Properties properties = new Properties();
         properties.setProperty(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, adminClientHost);
-
         this.adminClient = AdminClient.create(properties);
     }
 
