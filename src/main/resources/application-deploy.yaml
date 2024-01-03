@@ -1,0 +1,12 @@
+spring:
+  kafka:
+    bootstrap-servers: kafka1:9091,kafka2:9092,kafka3:9093
+    admin-client: kafka1:9091
+jwt:
+  secretKey: ${JWT_SECRET_KEY}
+server:
+  port: 8082
+
+logging:
+  level:
+    org.springframework.kafka: error
