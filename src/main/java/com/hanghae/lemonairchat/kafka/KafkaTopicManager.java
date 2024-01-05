@@ -31,7 +31,7 @@ public class KafkaTopicManager {
 
     public Mono<Void> createTopic(String roomId, int partitions, short replicationFactor) {
         return Mono.create(sink -> adminClient.listTopics().names().whenComplete((names, ex) -> {
-            log.info("토픽 매니저");
+            // log.info("토픽 매니저");
             if (ex != null) {
                 sink.error(new RuntimeException(ex.getMessage()));
                 return;

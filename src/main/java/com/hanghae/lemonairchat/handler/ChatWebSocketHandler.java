@@ -53,7 +53,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 			.flatMap(chat -> {
   		  //log.info("successfully consumed {}={}", Chat.class.getSimpleName(), chat);
 				return session.send(Mono.just(session.textMessage(chat.getSender() + ":" + chat.getMessage())))
-					.log()
+					// .log()
 					.doOnError(throwable -> log.error(" 메세지 전송중 에러 발생 : {}", throwable.getMessage()));
 			})
 			.doOnError(throwable -> log.error("something bad happened while consuming : {}", throwable.getMessage()))

@@ -46,14 +46,14 @@ public class JwtUtil {
 			Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
 			return Mono.just(true);
 		} catch (SecurityException | MalformedJwtException | SignatureException e) {
-			log.error("Invalid JWT signature, 유효하지 않는 JWT 서명 입니다.");
+			// log.error("Invalid JWT signature, 유효하지 않는 JWT 서명 입니다.");
 		} catch (ExpiredJwtException e) {
-			log.error("Expired JWT token, 만료된 JWT token 입니다.");
+			// log.error("Expired JWT token, 만료된 JWT token 입니다.");
 			return Mono.just(false);
 		} catch (UnsupportedJwtException e) {
-			log.error("Unsupported JWT token, 지원되지 않는 JWT 토큰 입니다.");
+			// log.error("Unsupported JWT token, 지원되지 않는 JWT 토큰 입니다.");
 		} catch (IllegalArgumentException e) {
-			log.error("JWT claims is empty, 잘못된 JWT 토큰 입니다.");
+			// log.error("JWT claims is empty, 잘못된 JWT 토큰 입니다.");
 		}
 		return Mono.just(false);
 	}
@@ -67,9 +67,9 @@ public class JwtUtil {
 			if (!"chatToken".equals(jwtBody.get("type", String.class))) {
 				throw new RuntimeException("채팅 서버용 토큰 아님");
 			}
-			log.info(" chatToken 정상 확인");
-			log.info("참가자 id " + jwtBody.get("id", String.class));
-			log.info("참가자 nickname " + jwtBody.get("nickname", String.class));
+			// log.info(" chatToken 정상 확인");
+			// log.info("참가자 id " + jwtBody.get("id", String.class));
+			// log.info("참가자 nickname " + jwtBody.get("nickname", String.class));
 
 			return new JwtTokenSubjectDto(jwtBody.get("id", String.class), jwtBody.get("nickname", String.class));
 		} catch (Exception e) {
