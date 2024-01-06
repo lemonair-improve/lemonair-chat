@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.SignalType;
 
 @RequiredArgsConstructor
 @Component
@@ -32,9 +33,10 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 	@Override
 	public Mono<Void> handle(WebSocketSession session) {
 		final String role = (String)session.getAttributes().get("Role");
+		final String id = (String)session.getAttributes().get("id");
 		final String nickname = (String)session.getAttributes().getOrDefault("Nickname", "익명의 사용자");
 		final String roomId;
-    
+
 		String getUrl = session.getHandshakeInfo().getUri().getPath();
 		String[] pathSegments = getUrl.split("/");
 
@@ -50,6 +52,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 
 		consumer.receiveAutoAck()
 			.map(ConsumerRecord::value)
+			.filter(chat -> !chat.getMessage().equals("heartbeat"))
 			.flatMap(chat -> {
   		  //log.info("successfully consumed {}={}", Chat.class.getSimpleName(), chat);
 				return session.send(Mono.just(session.textMessage(chat.getSender() + ":" + chat.getMessage())))
@@ -58,6 +61,8 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 			})
 			.doOnError(throwable -> log.error("something bad happened while consuming : {}", throwable.getMessage()))
 			.subscribe();
+
+
 
 		return session.receive()
 			.flatMap(webSocketMessage -> {
