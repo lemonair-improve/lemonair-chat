@@ -55,6 +55,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 			.filter(chat -> !chat.getMessage().equals("heartbeat"))
 			.flatMap(chat -> {
   		  //log.info("successfully consumed {}={}", Chat.class.getSimpleName(), chat);
+
 				return session.send(Mono.just(session.textMessage(chat.getSender() + ":" + chat.getMessage())))
 					.log()
 					.doOnError(throwable -> log.error(" 메세지 전송중 에러 발생 : {}", throwable.getMessage()));
