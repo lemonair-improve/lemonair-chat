@@ -69,7 +69,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 			.flatMap(webSocketMessage -> {
 				String message = webSocketMessage.getPayloadAsText();
 				Chat chat = new Chat(message, nickname, roomId);
-				log.info("채팅 전송");
+				// log.info("채팅 전송");
 				return chatRepository.save(chat)
 					.flatMap(savedChat -> reactiveKafkaProducerTemplate.send(roomId, savedChat).then());
 			})
