@@ -1,6 +1,6 @@
 spring:
   profiles:
-    active: local
+    active: deploy
     include: common
     group:
       deploy:
