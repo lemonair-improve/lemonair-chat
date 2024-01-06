@@ -42,4 +42,5 @@ application-local.yml
 application-deploy.yaml
 application-deploy.yml
 keystore.p12
+bootstrap.yml
 Dockerfile
