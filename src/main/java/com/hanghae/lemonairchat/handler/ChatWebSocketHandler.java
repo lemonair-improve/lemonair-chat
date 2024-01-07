@@ -1,7 +1,6 @@
 package com.hanghae.lemonairchat.handler;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.common.TopicPartition;
 import org.springframework.http.HttpStatus;
 import org.springframework.kafka.core.reactive.ReactiveKafkaConsumerTemplate;
 import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
@@ -17,9 +16,8 @@ import com.hanghae.lemonairchat.repository.ChatRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.SignalType;
+import reactor.core.scheduler.Schedulers;
 
 @RequiredArgsConstructor
 @Component
@@ -37,6 +35,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 		final String nickname = (String)session.getAttributes().getOrDefault("Nickname", "익명의 사용자");
 		final String roomId;
 
+		log.info("{}의 websockethandler 입장", nickname);
 		String getUrl = session.getHandshakeInfo().getUri().getPath();
 		String[] pathSegments = getUrl.split("/");
 
@@ -46,15 +45,19 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 			return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 경로입니다"));
 		}
 
-		kafkaTopicManager.createTopic(roomId, 3, (short) 1);
-		ReactiveKafkaConsumerTemplate<String, Chat> consumer = kafkaConsumerService.reactiveKafkaConsumerTemplate(roomId);
+		kafkaTopicManager.createTopic(roomId, 3, (short)1).publishOn(Schedulers.boundedElastic()).subscribe();
+
+		ReactiveKafkaConsumerTemplate<String, Chat> consumer = kafkaConsumerService.reactiveKafkaConsumerTemplate(
+			roomId);
+
 		// log.info("consumer: {}", consumer);
 
 		consumer.receiveAutoAck()
+			// .publishOn(Schedulers.boundedElastic())
 			.map(ConsumerRecord::value)
 			.filter(chat -> !chat.getMessage().equals("heartbeat"))
 			.flatMap(chat -> {
-  		  //log.info("successfully consumed {}={}", Chat.class.getSimpleName(), chat);
+				log.info("{} 메세지를 받아서 웹소켓에 보내줄거야 클라이언트가 보도록", chat.getMessage());
 				return session.send(Mono.just(session.textMessage(chat.getSender() + ":" + chat.getMessage())))
 					.log()
 					.doOnError(throwable -> log.error(" 메세지 전송중 에러 발생 : {}", throwable.getMessage()));
@@ -62,19 +65,17 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 			.doOnError(throwable -> log.error("something bad happened while consuming : {}", throwable.getMessage()))
 			.subscribe();
 
-
-
 		return session.receive()
+			// .publishOn(Schedulers.boundedElastic())
 			.doFinally(signalType -> {
-				log.info("클라이언트의 세션 종료 요청 : " + signalType.toString());
-				session.close().subscribe();
-			})
-			.flatMap(webSocketMessage -> {
-				String message = webSocketMessage.getPayloadAsText();
-				Chat chat = new Chat(message, nickname, roomId);
-				return chatRepository.save(chat)
-					.flatMap(savedChat -> reactiveKafkaProducerTemplate.send(roomId, savedChat).then());
-			})
-			.then();
+			log.info("클라이언트의 세션 종료 요청 : " + signalType.toString());
+			session.close().log().subscribe();
+		}).flatMap(webSocketMessage -> {
+			String message = webSocketMessage.getPayloadAsText();
+			Chat chat = new Chat(message, nickname, roomId);
+			log.info("소켓의 채팅 {} 전송을 받아서 db에 저장하고 카프카에 뿌릴거야", chat.getMessage());
+			return chatRepository.save(chat)
+				.flatMap(savedChat -> reactiveKafkaProducerTemplate.send(roomId, savedChat).then());
+		}).then();
 	}
 }
