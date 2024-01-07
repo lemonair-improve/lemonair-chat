@@ -65,6 +65,10 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 
 
 		return session.receive()
+			.doFinally(signalType -> {
+				log.info("클라이언트의 세션 종료 요청 : " + signalType.toString());
+				session.close().subscribe();
+			})
 			.flatMap(webSocketMessage -> {
 				String message = webSocketMessage.getPayloadAsText();
 				Chat chat = new Chat(message, nickname, roomId);
