@@ -13,4 +13,4 @@ server:
 
 logging:
   level:
-    org.springframework.kafka: error
+    org.apache.kafka: error
