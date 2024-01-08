@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.socket.WebSocketHandler;
+import org.springframework.web.reactive.socket.WebSocketMessage;
 import org.springframework.web.reactive.socket.WebSocketSession;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -44,11 +45,10 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 			return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 경로입니다"));
 		}
 
-		kafkaTopicManager.createTopic(roomId, 3, (short)1).publishOn(Schedulers.boundedElastic()).subscribe();
+		kafkaTopicManager.createTopic(roomId, 3, (short)1).subscribeOn(Schedulers.boundedElastic()).subscribe();
 
 		kafkaConsumerService.reactiveKafkaConsumerTemplate(roomId)
 			.receiveAutoAck()
-			// 위로는 새로운 쓰레드가
 			.subscribeOn(Schedulers.boundedElastic())
 			.map(ConsumerRecord::value)
 			.filter(chat -> !chat.getMessage().equals("heartbeat"))
@@ -62,7 +62,6 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 			.subscribe();
 
 		return session.receive()
-			.publishOn(Schedulers.boundedElastic())
 			.doFinally(signalType -> {
 				log.info("클라이언트의 세션 종료 요청 : " + signalType.toString());
 				session.close().log().subscribe();
@@ -70,8 +69,12 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 				String message = webSocketMessage.getPayloadAsText();
 				Chat chat = new Chat(message, nickname, roomId);
 				log.info("소켓의 채팅 {} 전송을 받아서 db에 저장하고 카프카에 뿌릴거야", chat.getMessage());
-				return chatRepository.save(chat)
-					.flatMap(savedChat -> reactiveKafkaProducerTemplate.send(roomId, savedChat).then());
+				chatRepository.save(chat)
+					.subscribeOn(Schedulers.boundedElastic())
+					.flatMap(savedChat -> reactiveKafkaProducerTemplate.send(roomId, savedChat).then())
+					.subscribe();
+				return Mono.empty();
 			}).then();
 	}
+
 }
