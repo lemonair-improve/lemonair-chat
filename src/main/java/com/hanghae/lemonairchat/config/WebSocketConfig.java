@@ -55,13 +55,12 @@ public class WebSocketConfig {
 								.build());
 							return super.handleRequest(exchange, handler);
 						} else if (!"notlogin".equals(jwtChatAccessToken)) {
-							log.info("로그인한 사용자의 채팅 웹 소켓 연결 요청");
+
 
 							setAttributes(session, jwtUtil.getSubjectFromToken(jwtChatAccessToken));
 							return super.handleRequest(exchange, handler);
 							// TODO: 2023-12-26 방송의 방장 or Manager 인지 파악하는 로직 추가
-						} else {
-							log.info("로그인하지 않은 사용자의 채팅 웹 소켓 연결 요청");
+						} else { ;
 							session.getAttributes().put("Role", Role.NOT_LOGIN.toString());
 							return super.handleRequest(exchange, handler);
 						}

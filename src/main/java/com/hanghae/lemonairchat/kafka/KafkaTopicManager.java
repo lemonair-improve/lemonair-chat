@@ -38,7 +38,6 @@ public class KafkaTopicManager {
 				return;
 			}
 			if (names.contains(roomId)) {
-				log.info(" {} 라는 토픽인 이미 생성되어 있었음  : ", roomId);
 				sink.success();
 			} else {
 				NewTopic newTopic = new NewTopic(roomId, partitions, replicationFactor);

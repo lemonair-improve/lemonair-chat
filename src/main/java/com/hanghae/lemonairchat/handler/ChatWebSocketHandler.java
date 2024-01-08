@@ -38,7 +38,6 @@ public class ChatWebSocketHandler implements WebSocketHandler {
             .getOrDefault("Nickname", "익명의 사용자");
         final String roomId;
 
-        log.info("{}의 websockethandler 입장", nickname);
         String getUrl = session.getHandshakeInfo().getUri().getPath();
         String[] pathSegments = getUrl.split("/");
 
@@ -58,7 +57,6 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 			.map(ConsumerRecord::value)
 			.filter(chat -> !chat.getMessage().equals("heartbeat"))
 			.flatMap(chat -> {
-				log.info("{} 메세지를 받아서 웹소켓에 보내줄거야 클라이언트가 보도록", chat.getMessage());
 				return session.send(
 						Mono.just(session.textMessage(chat.getSender() + ":" + chat.getMessage())))
 					.log()
@@ -82,7 +80,6 @@ public class ChatWebSocketHandler implements WebSocketHandler {
           .flatMap(webSocketMessage -> {
                 String message = webSocketMessage.getPayloadAsText();
                 Chat chat = new Chat(message, nickname, roomId);
-                log.info("소켓의 채팅 {} 전송을 받아서 db에 저장하고 카프카에 뿌릴거야", chat.getMessage());
                 chatRepository.save(chat).subscribeOn(Schedulers.boundedElastic())
                     .flatMap(savedChat ->
                         reactiveKafkaProducerTemplate.send(roomId, savedChat)
