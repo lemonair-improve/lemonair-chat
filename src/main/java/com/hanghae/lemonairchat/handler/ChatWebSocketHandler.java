@@ -59,7 +59,6 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 			.flatMap(chat -> {
 				return session.send(
 						Mono.just(session.textMessage(chat.getSender() + ":" + chat.getMessage())))
-					.log()
 					.doOnError(
 						throwable -> log.error(" 메세지 전송중 에러 발생 : {}", throwable.getMessage()));
 			})
@@ -74,7 +73,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
         return session.receive()
             .subscribeOn(Schedulers.boundedElastic())
             .doFinally(signalType -> {
-                session.close().log().subscribe();
+                session.close().subscribe();
                 consumer = null;
             })
           .flatMap(webSocketMessage -> {
