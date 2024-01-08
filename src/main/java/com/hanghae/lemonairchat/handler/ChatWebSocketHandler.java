@@ -28,6 +28,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
     private final KafkaTopicManager kafkaTopicManager;
     private final KafkaConsumerService kafkaConsumerService;
     private final ReactiveKafkaProducerTemplate<String, Chat> reactiveKafkaProducerTemplate;
+    ReactiveKafkaConsumerTemplate<String, Chat> consumer;
 
     @Override
     public Mono<Void> handle(WebSocketSession session) {
@@ -47,11 +48,10 @@ public class ChatWebSocketHandler implements WebSocketHandler {
             return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 경로입니다"));
         }
 
-        kafkaTopicManager.createTopic(roomId, 3, (short) 1).publishOn(Schedulers.boundedElastic())
+        kafkaTopicManager.createTopic(roomId, 3, (short) 1).subscribeOn(Schedulers.boundedElastic())
             .subscribe();
 
-        ReactiveKafkaConsumerTemplate<String, Chat> consumer = kafkaConsumerService.reactiveKafkaConsumerTemplate(
-            roomId);
+        consumer = kafkaConsumerService.reactiveKafkaConsumerTemplate(roomId);
 
 		consumer.receiveAutoAck()
 			.subscribeOn(Schedulers.boundedElastic())
@@ -74,15 +74,16 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 
 
         return session.receive()
+            .subscribeOn(Schedulers.boundedElastic())
             .doFinally(signalType -> {
-                log.info("클라이언트의 세션 종료 요청 : " + signalType.toString());
                 session.close().log().subscribe();
-    			consumer.paused().subscribe();
-            }).flatMap(webSocketMessage -> {
+                consumer = null;
+            })
+          .flatMap(webSocketMessage -> {
                 String message = webSocketMessage.getPayloadAsText();
                 Chat chat = new Chat(message, nickname, roomId);
                 log.info("소켓의 채팅 {} 전송을 받아서 db에 저장하고 카프카에 뿌릴거야", chat.getMessage());
-                chatRepository.save(chat).publishOn(Schedulers.boundedElastic())
+                chatRepository.save(chat).subscribeOn(Schedulers.boundedElastic())
                     .flatMap(savedChat ->
                         reactiveKafkaProducerTemplate.send(roomId, savedChat)
                         .then()).subscribe();
