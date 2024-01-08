@@ -2,7 +2,6 @@ package com.hanghae.lemonairchat.handler;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.http.HttpStatus;
-import org.springframework.kafka.core.reactive.ReactiveKafkaConsumerTemplate;
 import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.socket.WebSocketHandler;
@@ -47,13 +46,10 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 
 		kafkaTopicManager.createTopic(roomId, 3, (short)1).publishOn(Schedulers.boundedElastic()).subscribe();
 
-		ReactiveKafkaConsumerTemplate<String, Chat> consumer = kafkaConsumerService.reactiveKafkaConsumerTemplate(
-			roomId);
-
-		// log.info("consumer: {}", consumer);
-
-		consumer.receiveAutoAck()
-			// .publishOn(Schedulers.boundedElastic())
+		kafkaConsumerService.reactiveKafkaConsumerTemplate(roomId)
+			.receiveAutoAck()
+			// 위로는 새로운 쓰레드가
+			.subscribeOn(Schedulers.boundedElastic())
 			.map(ConsumerRecord::value)
 			.filter(chat -> !chat.getMessage().equals("heartbeat"))
 			.flatMap(chat -> {
@@ -66,16 +62,16 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 			.subscribe();
 
 		return session.receive()
-			// .publishOn(Schedulers.boundedElastic())
+			.publishOn(Schedulers.boundedElastic())
 			.doFinally(signalType -> {
-			log.info("클라이언트의 세션 종료 요청 : " + signalType.toString());
-			session.close().log().subscribe();
-		}).flatMap(webSocketMessage -> {
-			String message = webSocketMessage.getPayloadAsText();
-			Chat chat = new Chat(message, nickname, roomId);
-			log.info("소켓의 채팅 {} 전송을 받아서 db에 저장하고 카프카에 뿌릴거야", chat.getMessage());
-			return chatRepository.save(chat)
-				.flatMap(savedChat -> reactiveKafkaProducerTemplate.send(roomId, savedChat).then());
-		}).then();
+				log.info("클라이언트의 세션 종료 요청 : " + signalType.toString());
+				session.close().log().subscribe();
+			}).flatMap(webSocketMessage -> {
+				String message = webSocketMessage.getPayloadAsText();
+				Chat chat = new Chat(message, nickname, roomId);
+				log.info("소켓의 채팅 {} 전송을 받아서 db에 저장하고 카프카에 뿌릴거야", chat.getMessage());
+				return chatRepository.save(chat)
+					.flatMap(savedChat -> reactiveKafkaProducerTemplate.send(roomId, savedChat).then());
+			}).then();
 	}
 }
