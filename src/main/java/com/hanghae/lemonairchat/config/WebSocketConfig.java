@@ -46,6 +46,7 @@ public class WebSocketConfig {
 
 			@Override
 			public Mono<Void> handleRequest(ServerWebExchange exchange, WebSocketHandler handler) {
+				log.info("연결 요청");
 				// log.info("exchange.getRequest().getURI().getPath() : " + exchange.getRequest().getURI().getPath());
 				WebSocketHandler decorator = session -> {
 					String path = exchange.getRequest().getURI().getPath();
