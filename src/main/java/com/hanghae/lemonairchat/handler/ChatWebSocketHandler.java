@@ -39,19 +39,12 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 		String[] pathSegments = getUrl.split("/");
 
 		if (pathSegments.length > 2) {
-			roomId = PREFIX_ROOMID + pathSegments[2];
+			roomId = pathSegments[2];
 		} else {
 			return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 경로입니다"));
 		}
 
-		if (!kafkaTopicManager.isTopicCreated(roomId)) {
-			kafkaTopicManager.createTopic(roomId, 3, (short)1)
-				.subscribeOn(Schedulers.boundedElastic())
-				.doOnError(error -> log.error("토픽 매니저에서 createTopic 메서드 실행 후 에러 발생 {} ", error.getMessage()))
-				.subscribe();
-		}
-
-		kafkaConsumerService.addAndSubscribeTopic(roomId, session);
+		kafkaConsumerService.createOrJoinRoom(roomId, session);
 
 		return session.receive()
 			.subscribeOn(Schedulers.boundedElastic())
@@ -63,7 +56,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 				Chat chat = new Chat(message, nickname, roomId);
 				chatRepository.save(chat)
 					.subscribeOn(Schedulers.boundedElastic())
-					.flatMap(savedChat -> reactiveKafkaProducerTemplate.send(roomId, savedChat).then())
+					.flatMap(savedChat -> reactiveKafkaProducerTemplate.send("chat", savedChat).then())
 					.subscribe();
 				return Mono.empty();
 			})

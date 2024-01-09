@@ -4,7 +4,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.regex.Pattern;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.springframework.beans.factory.annotation.Value;
@@ -45,8 +44,7 @@ public class KafkaConsumerConfig {
         config.put(JsonDeserializer.VALUE_DEFAULT_TYPE, Chat.class);
 
         ReceiverOptions<String, Chat> basicReceiverOptions = ReceiverOptions.create(config);
-        ReceiverOptions<String, Chat> options = basicReceiverOptions.subscription(Pattern.compile("room-.*"));
-        System.out.println("컨슈머 생성 되는타이밍");
+        ReceiverOptions<String, Chat> options = basicReceiverOptions.subscription(Collections.singletonList("chat"));
         return new ReactiveKafkaConsumerTemplate<>(options);
     }
 }

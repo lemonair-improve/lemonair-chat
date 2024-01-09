@@ -25,18 +25,18 @@ import reactor.core.scheduler.Schedulers;
 @RequiredArgsConstructor
 public class KafkaConsumerService implements CommandLineRunner {
 	private final ReactiveKafkaConsumerTemplate<String, Chat> reactiveKafkaConsumerTemplate;
-	private final Map<String, List<WebSocketSession>> sessionMap = Collections.synchronizedMap(new HashMap<>());
+	private final Map<String, List<WebSocketSession>> roomSessionListMap = Collections.synchronizedMap(new HashMap<>());
 
-	public void addAndSubscribeTopic(String topic, WebSocketSession webSocketSession) {
-		if (sessionMap.containsKey(topic)) {
-			log.info("{} 토픽 은 이미 있음, 이번 참가자는 {}", topic, webSocketSession.getAttributes().get("LoginId"));
-			sessionMap.get(topic).add(webSocketSession);
-			log.info("{} 토픽을 구독하는 세션의 수는", sessionMap.get(topic).size());
+	public void createOrJoinRoom(String roomId, WebSocketSession webSocketSession) {
+		if (roomSessionListMap.containsKey(roomId)) {
+			log.info("{} 토픽 은 이미 있음, 이번 참가자는 {}", roomId, webSocketSession.getAttributes().get("LoginId"));
+			roomSessionListMap.get(roomId).add(webSocketSession);
+			log.info("{} 토픽을 구독하는 세션의 수는", roomSessionListMap.get(roomId).size());
 		} else {
 			List<WebSocketSession> webSocketSessionList = new ArrayList<>();
 			webSocketSessionList.add(webSocketSession);
-			sessionMap.put(topic, webSocketSessionList);
-			log.info("{} 토픽 새로 생성, 첫 참가자는 {}", topic, webSocketSession.getAttributes().get("LoginId"));
+			roomSessionListMap.put(roomId, webSocketSessionList);
+			log.info("{} 토픽 새로 생성, 첫 참가자는 {}", roomId, webSocketSession.getAttributes().get("LoginId"));
 		}
 	}
 
@@ -54,8 +54,8 @@ public class KafkaConsumerService implements CommandLineRunner {
 		String topic = chat.getRoomId();
 		String messageToSend = chat.getSender() + ": " + chat.getMessage();
 		log.info("sendToSession, messageToSend : " + messageToSend);
-		log.info("sessionMap.entrySet().size() : " + sessionMap.entrySet().size());
-		return Flux.fromIterable(sessionMap.entrySet())
+		log.info("sessionMap.entrySet().size() : " + roomSessionListMap.entrySet().size());
+		return Flux.fromIterable(roomSessionListMap.entrySet())
 			.filter(entry -> topic.equals(entry.getKey()))
 			.flatMap(entry -> Flux.fromIterable(entry.getValue())
 				.parallel()

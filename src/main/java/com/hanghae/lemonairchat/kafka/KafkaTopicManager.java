@@ -23,22 +23,19 @@ public class KafkaTopicManager {
 
 	@Value("${spring.kafka.admin-client}")
 	private String adminClientHost;
-	private Set<String> topics;
 	private AdminClient adminClient;
 
 	@PostConstruct
-	public void initilize() {
+	public void initialize() {
 		Properties properties = new Properties();
 		properties.setProperty(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, adminClientHost);
 		this.adminClient = AdminClient.create(properties);
-		topics = new HashSet<>();
+		// 정적으로 하나의 토픽을 생성합니다.
+		createTopic("chat", 3, (short) 1).block();
 	}
 
-	public boolean isTopicCreated(String roomId) {
-		return topics.contains(roomId);
-	}
 
-	public Mono<Void> createTopic(String roomId, int partitions, short replicationFactor) {
+	private Mono<Void> createTopic(String roomId, int partitions, short replicationFactor) {
 		return Mono.create(sink -> adminClient.listTopics().names().whenComplete((names, ex) -> {
 			if (ex != null) {
 				sink.error(new RuntimeException(ex.getMessage()));
@@ -54,7 +51,6 @@ public class KafkaTopicManager {
 					if (createEx != null) {
 						sink.error(new RuntimeException(createEx.getMessage()));
 					} else {
-						topics.add(roomId);
 						sink.success();
 					}
 				});
