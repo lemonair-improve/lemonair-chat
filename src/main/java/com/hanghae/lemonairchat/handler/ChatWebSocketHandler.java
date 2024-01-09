@@ -1,11 +1,13 @@
 package com.hanghae.lemonairchat.handler;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.kafka.core.reactive.ReactiveKafkaConsumerTemplate;
 import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.socket.WebSocketHandler;
+import org.springframework.web.reactive.socket.WebSocketMessage.Type;
 import org.springframework.web.reactive.socket.WebSocketSession;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -16,6 +18,7 @@ import com.hanghae.lemonairchat.repository.ChatRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -52,23 +55,22 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 
         consumer = kafkaConsumerService.reactiveKafkaConsumerTemplate(roomId);
 
-		consumer.receiveAutoAck()
-			.subscribeOn(Schedulers.boundedElastic())
-			.map(ConsumerRecord::value)
-			.filter(chat -> !chat.getMessage().equals("heartbeat"))
-			.flatMap(chat -> {
-				return session.send(
-						Mono.just(session.textMessage(chat.getSender() + ":" + chat.getMessage())))
-					.doOnError(
-						throwable -> log.error(" 메세지 전송중 에러 발생 : {}", throwable.getMessage()));
-			})
-			.doOnError(throwable -> log.error("something bad happened while consuming : {}",
-				throwable.getMessage()))
-			.subscribe();
+        consumer.receiveAutoAck()
+            .subscribeOn(Schedulers.boundedElastic())
+            .onBackpressureBuffer()
+            .map(ConsumerRecord::value)
+            .filter(chat -> !chat.getMessage().equals("heartbeat"))
+            .flatMap(chat -> {
+                return session.send(
+                        Mono.just(session.textMessage(chat.getSender() + ":" + chat.getMessage())))
+                    .doOnError(
+                        throwable -> log.error(" 메세지 전송중 에러 발생 : {}", throwable.getMessage()));
+            })
+            .doOnError(throwable -> log.error("something bad happened while consuming : {}",
+                throwable.getMessage()))
+            .subscribe();
 
         // log.info("consumer: {}", consumer);
-
-
 
         return session.receive()
             .subscribeOn(Schedulers.boundedElastic())
@@ -76,13 +78,20 @@ public class ChatWebSocketHandler implements WebSocketHandler {
                 session.close().subscribe();
                 consumer = null;
             })
-          .flatMap(webSocketMessage -> {
+            .flatMap(webSocketMessage -> {
                 String message = webSocketMessage.getPayloadAsText();
+                log.info("webSocketMessage.getType() : " + webSocketMessage.getType());
+                log.info("message : " + message);
+//                if (webSocketMessage.getType() == Type.PING) {
+//                    return session.send(Mono.just(session.pongMessage(
+//                        DataBufferFactory::allocateBuffer)));
+//                } else {
                 Chat chat = new Chat(message, nickname, roomId);
                 chatRepository.save(chat).subscribeOn(Schedulers.boundedElastic())
                     .flatMap(savedChat ->
                         reactiveKafkaProducerTemplate.send(roomId, savedChat)
-                        .then()).subscribe();
+                            .then()).subscribe();
+//                }
                 return Mono.empty();
             }).then();
     }
