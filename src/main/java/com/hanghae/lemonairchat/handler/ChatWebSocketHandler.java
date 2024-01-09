@@ -1,10 +1,6 @@
 package com.hanghae.lemonairchat.handler;
 
-import java.util.function.Function;
-
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.springframework.core.io.buffer.DataBuffer;
-import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.kafka.core.reactive.ReactiveKafkaConsumerTemplate;
 import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
@@ -58,7 +54,6 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 		consumer.receiveAutoAck()
 			.subscribeOn(Schedulers.boundedElastic())
 			.map(ConsumerRecord::value)
-			// .filter(chat -> !chat.getMessage().equals("heartbeat"))
 			.flatMap(chat -> {
 				return session.send(Mono.just(session.textMessage(chat.getSender() + ":" + chat.getMessage())))
 					.doOnError(throwable -> log.error(" 메세지 전송중 에러 발생 : {}", throwable.getMessage()));
@@ -66,50 +61,23 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 			.doOnError(throwable -> log.error("something bad happened while consuming : {}", throwable.getMessage()))
 			.subscribe();
 
-		// log.info("consumer: {}", consumer);
-
-		return session.receive().subscribeOn(Schedulers.boundedElastic()).doFinally(signalType -> {
-			session.close().subscribe();
-			consumer = null;
-		}).flatMap(webSocketMessage -> {
-			String message = webSocketMessage.getPayloadAsText();
-			log.info("webSocketMessage.getType() : " + webSocketMessage.getType());
-			log.info("webSocketMessage.getPayloadAsText() : " + webSocketMessage.getPayloadAsText());
-			if (isPingMessage(webSocketMessage)) {
-				// 클라이언트로부터의 ping 메시지에 대한 처리
-				log.info("ping 메세지를 받아서 pong을 리턴하기");
-				// return session.send(Mono.just(session.pongMessage(payloadFactory(session.bufferFactory())))).log();
-				return session.send(Mono.just(session.textMessage("pong"))).log();
-
-			} else {
+		return session.receive()
+			.subscribeOn(Schedulers.boundedElastic())
+			.doFinally(signalType -> {
+				session.close().subscribe();
+				consumer = null;
+			})
+			.filter(webSocketMessage -> !webSocketMessage.getPayloadAsText().equals("heartbeat"))
+			.flatMap(webSocketMessage -> {
+				String message = webSocketMessage.getPayloadAsText();
+				log.info("webSocketMessage.getPayloadAsText() : " + webSocketMessage.getPayloadAsText());
 				Chat chat = new Chat(message, nickname, roomId);
 				chatRepository.save(chat)
 					.subscribeOn(Schedulers.boundedElastic())
 					.flatMap(savedChat -> reactiveKafkaProducerTemplate.send(roomId, savedChat).then())
 					.subscribe();
-			}
-			return Mono.empty();
-		}).then();
-	}
-
-	private Function<DataBufferFactory, DataBuffer> payloadFactory(DataBufferFactory bufferFactory) {
-		// 원하는 페이로드 생성 로직 구현
-		// 예: "Pong" 문자열을 포함하는 DataBuffer 생성
-		return factory -> {
-			byte[] payloadBytes = "Pong".getBytes();
-			DataBuffer dataBuffer = bufferFactory.allocateBuffer(payloadBytes.length);
-			dataBuffer.write(payloadBytes);
-			return dataBuffer;
-		};
-	}
-
-	// 메시지가 ping 메시지인지 확인하는 메서드
-	private boolean isPingMessage(WebSocketMessage webSocketMessage) {
-		String message = webSocketMessage.getPayloadAsText();
-		return "ping".equals(message);
-	}
-
-	private boolean isK6PingMessage(WebSocketMessage webSocketMessage){
-		return webSocketMessage.getType().equals(WebSocketMessage.Type.PING);
+				return Mono.empty();
+			})
+			.then();
 	}
 }
