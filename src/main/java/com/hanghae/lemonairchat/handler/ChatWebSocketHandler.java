@@ -65,7 +65,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 			.subscribeOn(Schedulers.boundedElastic())
 			.doFinally(signalType -> {
 				session.close().subscribe();
-				consumer = null;
+				// consumer = null;
 			})
 			.filter(webSocketMessage -> !webSocketMessage.getPayloadAsText().equals("heartbeat"))
 			.flatMap(webSocketMessage -> {
