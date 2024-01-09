@@ -8,7 +8,7 @@ import org.springframework.web.reactive.socket.WebSocketSession;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.hanghae.lemonairchat.entity.Chat;
-import com.hanghae.lemonairchat.kafka.KafkaConsumerRun;
+import com.hanghae.lemonairchat.kafka.KafkaConsumerService;
 import com.hanghae.lemonairchat.kafka.KafkaTopicManager;
 import com.hanghae.lemonairchat.repository.ChatRepository;
 
@@ -24,9 +24,10 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 
 	private final ChatRepository chatRepository;
 	private final KafkaTopicManager kafkaTopicManager;
-	private final KafkaConsumerRun kafkaConsumerRun;
+	private final KafkaConsumerService kafkaConsumerService;
 	private final ReactiveKafkaProducerTemplate<String, Chat> reactiveKafkaProducerTemplate;
 	private final String PREFIX_ROOMID = "room-";
+
 	@Override
 	public Mono<Void> handle(WebSocketSession session) {
 		final String role = (String)session.getAttributes().get("Role");
@@ -50,14 +51,11 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 				.subscribe();
 		}
 
-		kafkaConsumerRun.addAndSubscribeTopic(roomId, session);
+		kafkaConsumerService.addAndSubscribeTopic(roomId, session);
 
 		return session.receive()
 			.subscribeOn(Schedulers.boundedElastic())
-			.doFinally(signalType -> {
-				session.close().subscribe();
-				// consumer = null;
-			})
+			.doFinally(signalType -> session.close().subscribeOn(Schedulers.boundedElastic()).subscribe())
 			.filter(webSocketMessage -> !webSocketMessage.getPayloadAsText().equals("heartbeat"))
 			.flatMap(webSocketMessage -> {
 				String message = webSocketMessage.getPayloadAsText();
