@@ -24,8 +24,9 @@ import reactor.core.publisher.Mono;
 public class JwtUtil {
 
 	public static final String BEARER_PREFIX = "Bearer ";
-	@Value("${jwt.secretKey}")
-	private String secretKey;
+	// @Value("${jwt.secretKey}")
+	// private String secretKey;
+	private String secretKey = "6rCcIOyWtOydtOyXhuuEpOqxjSDsvJzsp4DrqbTrkJjsp4Ag7J206rKMIOynp+uLpOqzoCDruYgg7IOd7ISx7J20IOyViOuPvD8=";
 	private Key key;
 
 	@PostConstruct

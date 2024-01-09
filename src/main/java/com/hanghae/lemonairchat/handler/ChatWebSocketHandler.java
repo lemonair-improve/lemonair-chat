@@ -1,17 +1,14 @@
 package com.hanghae.lemonairchat.handler;
 
-import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.http.HttpStatus;
-import org.springframework.kafka.core.reactive.ReactiveKafkaConsumerTemplate;
 import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.socket.WebSocketHandler;
-import org.springframework.web.reactive.socket.WebSocketMessage;
 import org.springframework.web.reactive.socket.WebSocketSession;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.hanghae.lemonairchat.entity.Chat;
-import com.hanghae.lemonairchat.kafka.KafkaConsumerService;
+import com.hanghae.lemonairchat.kafka.KafkaConsumerRun;
 import com.hanghae.lemonairchat.kafka.KafkaTopicManager;
 import com.hanghae.lemonairchat.repository.ChatRepository;
 
@@ -27,10 +24,9 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 
 	private final ChatRepository chatRepository;
 	private final KafkaTopicManager kafkaTopicManager;
-	private final KafkaConsumerService kafkaConsumerService;
+	private final KafkaConsumerRun kafkaConsumerRun;
 	private final ReactiveKafkaProducerTemplate<String, Chat> reactiveKafkaProducerTemplate;
-	ReactiveKafkaConsumerTemplate<String, Chat> consumer;
-
+	private final String PREFIX_ROOMID = "room-";
 	@Override
 	public Mono<Void> handle(WebSocketSession session) {
 		final String role = (String)session.getAttributes().get("Role");
@@ -42,24 +38,19 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 		String[] pathSegments = getUrl.split("/");
 
 		if (pathSegments.length > 2) {
-			roomId = pathSegments[2];
+			roomId = PREFIX_ROOMID + pathSegments[2];
 		} else {
 			return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 경로입니다"));
 		}
 
-		kafkaTopicManager.createTopic(roomId, 3, (short)1).subscribeOn(Schedulers.boundedElastic()).subscribe();
+		if (!kafkaTopicManager.isTopicCreated(roomId)) {
+			kafkaTopicManager.createTopic(roomId, 3, (short)1)
+				.subscribeOn(Schedulers.boundedElastic())
+				.doOnError(error -> log.error("토픽 매니저에서 createTopic 메서드 실행 후 에러 발생 {} ", error.getMessage()))
+				.subscribe();
+		}
 
-		consumer = kafkaConsumerService.reactiveKafkaConsumerTemplate(roomId);
-
-		consumer.receiveAutoAck()
-			.subscribeOn(Schedulers.boundedElastic())
-			.map(ConsumerRecord::value)
-			.flatMap(chat -> {
-				return session.send(Mono.just(session.textMessage(chat.getSender() + ":" + chat.getMessage())))
-					.doOnError(throwable -> log.error(" 메세지 전송중 에러 발생 : {}", throwable.getMessage()));
-			})
-			.doOnError(throwable -> log.error("something bad happened while consuming : {}", throwable.getMessage()))
-			.subscribe();
+		kafkaConsumerRun.addAndSubscribeTopic(roomId, session);
 
 		return session.receive()
 			.subscribeOn(Schedulers.boundedElastic())
@@ -70,7 +61,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 			.filter(webSocketMessage -> !webSocketMessage.getPayloadAsText().equals("heartbeat"))
 			.flatMap(webSocketMessage -> {
 				String message = webSocketMessage.getPayloadAsText();
-				log.info("webSocketMessage.getPayloadAsText() : " + webSocketMessage.getPayloadAsText());
+				log.info("c->s 메세지 받음 : " + webSocketMessage.getPayloadAsText());
 				Chat chat = new Chat(message, nickname, roomId);
 				chatRepository.save(chat)
 					.subscribeOn(Schedulers.boundedElastic())
@@ -80,4 +71,5 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 			})
 			.then();
 	}
+
 }

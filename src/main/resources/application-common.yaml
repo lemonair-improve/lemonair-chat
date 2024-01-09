@@ -6,8 +6,8 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-jwt:
-  secretKey: ${JWT_SECRET_KEY}
+#jwt:
+#  secretKey: ${JWT_SECRET_KEY}
 server:
   port: 8082
 
