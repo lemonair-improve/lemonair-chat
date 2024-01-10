@@ -4,8 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.boot.CommandLineRunner;
@@ -27,33 +25,27 @@ import reactor.core.scheduler.Schedulers;
 public class KafkaConsumerService implements CommandLineRunner {
 	private final ReactiveKafkaConsumerTemplate<String, Chat> reactiveKafkaConsumerTemplate;
 	private final Map<String, List<WebSocketSession>> roomSessionListMap = new ConcurrentHashMap<>();
-	private final ConcurrentHashMap<String, Lock> roomLocks = new ConcurrentHashMap<>();
-
+	// private final ConcurrentHashMap<String, Lock> roomLocks = new ConcurrentHashMap<>();
 
 	public void createOrEnterRoom(String roomId, WebSocketSession webSocketSession) {
-		// todo 상문 comment : 어차피 ConcurrentHashMap의 computIfAbsent가 완벽하게 동시성제어를 하고있지 않다면
-		//  아래의 로직도 Lock 객체를 새로 생성해서 lock을 거는 행위를 초기 3개의 쓰레드가 동시에 진행한다면
-		//  이것 또한 완벽한 동시성 제어가 됐다고 할 수 없지 않나?
-		//  redis를 써야하나...
-		roomLocks.computeIfAbsent(roomId, key -> new ReentrantLock()).lock();
-		try{
-			roomSessionListMap.computeIfAbsent(roomId, key -> new ArrayList<>());
-			roomSessionListMap.get(roomId).add(webSocketSession);
-			log.info("{} 채팅방 새로운 참가자 {} 현재 참가자의 수는 {}",roomId, webSocketSession.getAttributes().get("LoginId"),
-				roomSessionListMap.get(roomId).size());
-		} finally {
-			roomLocks.get(roomId).unlock();
+		roomSessionListMap.putIfAbsent(roomId, new ArrayList<>());
+
+		List<WebSocketSession> webSocketSessionList = roomSessionListMap.get(roomId);
+		synchronized (webSocketSessionList) {
+			webSocketSessionList.add(webSocketSession);
 		}
+
+		log.info("{} 채팅방 새로운 참가자 {} 현재 참가자의 수는 {}", roomId, webSocketSession.getAttributes().get("LoginId"),
+			roomSessionListMap.get(roomId).size());
 	}
-	public void exitRoom(String roomId, WebSocketSession webSocketSession){
-		roomLocks.get(roomId).lock();
-		try{
-			roomSessionListMap.get(roomId).remove(webSocketSession);
-			log.info("{} 채팅방에서 {} 가 퇴장 현재 참가자의 수는 {}",roomId, webSocketSession.getAttributes().get("LoginId"),
-				roomSessionListMap.get(roomId).size());
-		} finally {
-			roomLocks.get(roomId).unlock();
+
+	public void exitRoom(String roomId, WebSocketSession webSocketSession) {
+		List<WebSocketSession> webSocketSessionList = roomSessionListMap.get(roomId);
+		synchronized (webSocketSessionList) {
+			webSocketSessionList.remove(webSocketSession);
 		}
+		log.info("{} 채팅방에서 {} 가 퇴장 현재 참가자의 수는 {}", roomId, webSocketSession.getAttributes().get("LoginId"),
+			roomSessionListMap.get(roomId).size());
 	}
 
 	@Override

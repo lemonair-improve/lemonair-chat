@@ -9,7 +9,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.hanghae.lemonairchat.entity.Chat;
 import com.hanghae.lemonairchat.kafka.KafkaConsumerService;
-import com.hanghae.lemonairchat.kafka.KafkaTopicManager;
 import com.hanghae.lemonairchat.repository.ChatRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -23,15 +22,13 @@ import reactor.core.scheduler.Schedulers;
 public class ChatWebSocketHandler implements WebSocketHandler {
 
 	private final ChatRepository chatRepository;
-	private final KafkaTopicManager kafkaTopicManager;
 	private final KafkaConsumerService kafkaConsumerService;
 	private final ReactiveKafkaProducerTemplate<String, Chat> reactiveKafkaProducerTemplate;
-	private final String PREFIX_ROOMID = "room-";
 
 	@Override
 	public Mono<Void> handle(WebSocketSession session) {
-		final String role = (String)session.getAttributes().get("Role");
-		final String id = (String)session.getAttributes().get("id");
+		// final String role = (String)session.getAttributes().get("Role");
+		// final String loginId = (String)session.getAttributes().get("LoginId");
 		final String nickname = (String)session.getAttributes().getOrDefault("Nickname", "익명의 사용자");
 		final String roomId;
 
@@ -44,14 +41,13 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 			return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 경로입니다"));
 		}
 
-		synchronized (this) {
-			kafkaConsumerService.createOrEnterRoom(roomId, session);
-		}
+		kafkaConsumerService.createOrEnterRoom(roomId, session);
 
 		return session.receive()
 			.subscribeOn(Schedulers.boundedElastic())
 			.doFinally(signalType -> {
-				log.info("세션 연결 종료 signalType : {}", signalType.toString());
+				log.info("{}님 연결 끊김 ", nickname);
+				kafkaConsumerService.exitRoom(roomId, session);
 				session.close().subscribeOn(Schedulers.boundedElastic()).subscribe();
 			})
 			.filter(webSocketMessage -> !webSocketMessage.getPayloadAsText().equals("heartbeat"))
