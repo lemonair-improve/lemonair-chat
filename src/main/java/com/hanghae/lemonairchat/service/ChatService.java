@@ -85,9 +85,19 @@ public class ChatService implements CommandLineRunner {
 	public Mono<Boolean> createRoom(String roomId) {
 		return Mono.fromCallable(() -> {
 			if (rooms.containsKey(roomId)) {
-				throw new RuntimeException("이미 채팅방이 개설되어있음");
+				throw new RuntimeException(roomId + " 채팅방은 이미 개설되어있음");
 			}
 			rooms.put(roomId, new ArrayList<>());
+			return true;
+		});
+	}
+
+	public Mono<Boolean> removeRoom(String roomId) {
+		return Mono.fromCallable(() -> {
+			if (!rooms.containsKey(roomId)) {
+				throw new RuntimeException(roomId + " 채팅방이 없는데 삭제 요청");
+			}
+			rooms.remove(roomId);
 			return true;
 		});
 	}
