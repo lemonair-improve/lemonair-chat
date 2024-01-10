@@ -1,10 +1,9 @@
 package com.hanghae.lemonairchat.kafka;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.boot.CommandLineRunner;
@@ -25,19 +24,13 @@ import reactor.core.scheduler.Schedulers;
 @RequiredArgsConstructor
 public class KafkaConsumerService implements CommandLineRunner {
 	private final ReactiveKafkaConsumerTemplate<String, Chat> reactiveKafkaConsumerTemplate;
-	private final Map<String, List<WebSocketSession>> roomSessionListMap = Collections.synchronizedMap(new HashMap<>());
+	private final Map<String, List<WebSocketSession>> roomSessionListMap = new ConcurrentHashMap<>();
 
 	public void createOrJoinRoom(String roomId, WebSocketSession webSocketSession) {
-		if (roomSessionListMap.containsKey(roomId)) {
-			log.info("{} 토픽 은 이미 있음, 이번 참가자는 {}", roomId, webSocketSession.getAttributes().get("LoginId"));
-			roomSessionListMap.get(roomId).add(webSocketSession);
-			log.info("토픽을 구독하는 세션의 수 : {}", roomSessionListMap.get(roomId).size());
-		} else {
-			List<WebSocketSession> webSocketSessionList = new ArrayList<>();
-			webSocketSessionList.add(webSocketSession);
-			roomSessionListMap.put(roomId, webSocketSessionList);
-			log.info("{} 토픽 새로 생성, 첫 참가자는 {}", roomId, webSocketSession.getAttributes().get("LoginId"));
-		}
+		roomSessionListMap.computeIfAbsent(roomId, key -> new ArrayList<>());
+		roomSessionListMap.get(roomId).add(webSocketSession);
+		log.info("{} 토픽의 새로운 참가자 {} 현재 참가자의 수는 {}",roomId, webSocketSession.getAttributes().get("LoginId"),
+			roomSessionListMap.get(roomId).size());
 	}
 
 	@Override

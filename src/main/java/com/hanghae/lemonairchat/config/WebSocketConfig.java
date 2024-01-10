@@ -38,7 +38,6 @@ public class WebSocketConfig {
 
 			@Override
 			public Mono<Void> handleRequest(ServerWebExchange exchange, WebSocketHandler handler) {
-				log.info("연결 요청");
 				WebSocketHandler decorator = session -> {
 					String path = exchange.getRequest().getURI().getPath();
 					String jwtChatAccessToken = path.substring(path.lastIndexOf("/") + 1);
@@ -53,7 +52,6 @@ public class WebSocketConfig {
 						return handler.handle(session);
 					} else if (!"notlogin".equals(jwtChatAccessToken)) {
 						log.info("로그인한 사용자의 채팅 웹 소켓 연결 요청");
-
 						setAttributes(session, jwtUtil.getSubjectFromToken(jwtChatAccessToken));
 						return handler.handle(session);
 
