@@ -31,7 +31,7 @@ public class KafkaConsumerService implements CommandLineRunner {
 		if (roomSessionListMap.containsKey(roomId)) {
 			log.info("{} 토픽 은 이미 있음, 이번 참가자는 {}", roomId, webSocketSession.getAttributes().get("LoginId"));
 			roomSessionListMap.get(roomId).add(webSocketSession);
-			log.info("{} 토픽을 구독하는 세션의 수는", roomSessionListMap.get(roomId).size());
+			log.info("토픽을 구독하는 세션의 수 : {}", roomSessionListMap.get(roomId).size());
 		} else {
 			List<WebSocketSession> webSocketSessionList = new ArrayList<>();
 			webSocketSessionList.add(webSocketSession);
@@ -51,12 +51,12 @@ public class KafkaConsumerService implements CommandLineRunner {
 	}
 
 	public Mono<Void> sendToSession(Chat chat) {
-		String topic = chat.getRoomId();
+		String roomId = chat.getRoomId();
 		String messageToSend = chat.getSender() + ": " + chat.getMessage();
 		log.info("sendToSession, messageToSend : " + messageToSend);
 		log.info("sessionMap.entrySet().size() : " + roomSessionListMap.entrySet().size());
 		return Flux.fromIterable(roomSessionListMap.entrySet())
-			.filter(entry -> topic.equals(entry.getKey()))
+			.filter(entry -> roomId.equals(entry.getKey()))
 			.flatMap(entry -> Flux.fromIterable(entry.getValue())
 				.parallel()
 				.runOn(Schedulers.parallel())
