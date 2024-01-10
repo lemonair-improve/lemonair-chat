@@ -44,11 +44,16 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 			return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 경로입니다"));
 		}
 
-		kafkaConsumerService.createOrJoinRoom(roomId, session);
+		synchronized (this) {
+			kafkaConsumerService.createOrEnterRoom(roomId, session);
+		}
 
 		return session.receive()
 			.subscribeOn(Schedulers.boundedElastic())
-			.doFinally(signalType -> session.close().subscribeOn(Schedulers.boundedElastic()).subscribe())
+			.doFinally(signalType -> {
+				log.info("세션 연결 종료 signalType : {}", signalType.toString());
+				session.close().subscribeOn(Schedulers.boundedElastic()).subscribe();
+			})
 			.filter(webSocketMessage -> !webSocketMessage.getPayloadAsText().equals("heartbeat"))
 			.flatMap(webSocketMessage -> {
 				String message = webSocketMessage.getPayloadAsText();
