@@ -67,7 +67,7 @@ public class ChatService implements CommandLineRunner {
 
 	public Mono<Void> sendToSession(Chat chat) {
 		String roomId = chat.getRoomId();
-		String messageToSend = chat.getSender() + ": " + chat.getMessage();
+		String messageToSend = chat.getMessageType() + ":" + chat.getSender() + ":" + chat.getDonateMessage() + ":" + chat.getMessage();
 		log.info("sendToSession, messageToSend : " + messageToSend);
 		log.info("sessionMap.entrySet().size() : " + rooms.entrySet().size());
 		return Flux.fromIterable(rooms.entrySet())
