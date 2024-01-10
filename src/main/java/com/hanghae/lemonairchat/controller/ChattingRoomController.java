@@ -29,7 +29,7 @@ public class ChattingRoomController {
 
 	@DeleteMapping("/chat/rooms/{roomId}")
 	public Mono<ResponseEntity<Boolean>> removeChattingRoom(@PathVariable String roomId) {
-		log.info("방송 시작으로 채팅방 생성 요청 {}", roomId);
+		log.info("방송 종료로 채팅방 삭제 요청 {}", roomId);
 		return chatService.removeRoom(roomId).map(ResponseEntity::ok);
 	}
 }
