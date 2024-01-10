@@ -21,13 +21,13 @@ import reactor.core.publisher.Mono;
 public class ChattingRoomController {
 	private final ChatService chatService;
 
-	@PostMapping("/chat/room/{roomId}")
+	@PostMapping("/chat/rooms/{roomId}")
 	public Mono<ResponseEntity<Boolean>> createChattingRoom(@PathVariable String roomId) {
 		log.info("방송 시작으로 채팅방 생성 요청 {}", roomId);
 		return chatService.createRoom(roomId).map(ResponseEntity::ok);
 	}
 
-	@DeleteMapping("/chat/room/{roomId}")
+	@DeleteMapping("/chat/rooms/{roomId}")
 	public Mono<ResponseEntity<Boolean>> removeChattingRoom(@PathVariable String roomId) {
 		log.info("방송 시작으로 채팅방 생성 요청 {}", roomId);
 		return chatService.removeRoom(roomId).map(ResponseEntity::ok);
