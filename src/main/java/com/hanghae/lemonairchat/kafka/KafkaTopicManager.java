@@ -1,7 +1,9 @@
 package com.hanghae.lemonairchat.kafka;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Properties;
+import java.util.Set;
 
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
@@ -21,22 +23,25 @@ public class KafkaTopicManager {
 
 	@Value("${spring.kafka.admin-client}")
 	private String adminClientHost;
-
 	private AdminClient adminClient;
 
 	@PostConstruct
-	public void initilize() {
+	public void initialize() {
 		Properties properties = new Properties();
 		properties.setProperty(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, adminClientHost);
 		this.adminClient = AdminClient.create(properties);
+		// 정적으로 하나의 토픽을 생성합니다.
+		createTopic("chat", 3, (short) 1).block();
 	}
 
-	public Mono<Void> createTopic(String roomId, int partitions, short replicationFactor) {
+
+	private Mono<Void> createTopic(String roomId, int partitions, short replicationFactor) {
 		return Mono.create(sink -> adminClient.listTopics().names().whenComplete((names, ex) -> {
 			if (ex != null) {
 				sink.error(new RuntimeException(ex.getMessage()));
 				return;
 			}
+
 			if (names.contains(roomId)) {
 				sink.success();
 			} else {

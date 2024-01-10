@@ -2,13 +2,14 @@ package com.hanghae.lemonairchat.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.util.ObjectUtils;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.reactive.socket.WebSocketHandler;
+import org.springframework.web.reactive.socket.WebSocketSession;
 import org.springframework.web.reactive.socket.server.WebSocketService;
 import org.springframework.web.reactive.socket.server.support.HandshakeWebSocketService;
 import org.springframework.web.reactive.socket.server.support.WebSocketHandlerAdapter;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebExchange;
-import org.springframework.web.server.WebSession;
 
 import com.hanghae.lemonairchat.constants.Role;
 import com.hanghae.lemonairchat.util.JwtTokenSubjectDto;
@@ -16,7 +17,6 @@ import com.hanghae.lemonairchat.util.JwtUtil;
 
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 @Slf4j
 @Configuration
@@ -30,72 +30,47 @@ public class WebSocketConfig {
 	@Bean
 	public WebSocketService webSocketService(JwtUtil jwtUtil) {
 		HandshakeWebSocketService webSocketService = new HandshakeWebSocketService() {
-			int index = 0;
 
-			private static void setAttributes(WebSession session, JwtTokenSubjectDto dto) {
+			private static void setAttributes(WebSocketSession session, JwtTokenSubjectDto dto, String roomId) {
 				session.getAttributes().put("Role", Role.MEMBER.toString());
+				session.getAttributes().put("RoomId", roomId);
 				session.getAttributes().put("LoginId", dto.getLoginId());
 				session.getAttributes().put("Nickname", dto.getNickname());
 			}
 
 			@Override
 			public Mono<Void> handleRequest(ServerWebExchange exchange, WebSocketHandler handler) {
-				// log.info("exchange.getRequest().getURI().getPath() : " + exchange.getRequest().getURI().getPath());
-				return exchange.getSession()
-					.flatMap(session -> {
-						String path = exchange.getRequest().getURI().getPath();
-						String jwtChatAccessToken = path.substring(path.lastIndexOf("/") + 1);
-						if (ObjectUtils.isEmpty(jwtChatAccessToken)) {
-							return Mono.error(new RuntimeException("chatAccessToken path param이 공백 문자열입니다."));
-						}
-						if (jwtChatAccessToken.startsWith("VU")) {
-							setAttributes(session, JwtTokenSubjectDto.builder()
-								.loginId(jwtChatAccessToken)
-								.nickname(jwtChatAccessToken)
-								.build());
-							return super.handleRequest(exchange, handler);
-						} else if (!"notlogin".equals(jwtChatAccessToken)) {
+				WebSocketHandler decorator = session -> {
+					String path = exchange.getRequest().getURI().getPath();
+					String[] pathSegments = path.split("/");
+					if (pathSegments.length < 4) {
+						// MappingConfig에서 애초에 pathSegments의 길이가 4인 요청만 여기서 handle하기때문에
+						// 여기에 걸릴 일은 없긴 합니다
+						return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 요청입니다."));
+					}
+					String roomId = pathSegments[2];
+					String jwtChatAccessToken = pathSegments[3];
 
+					if (jwtChatAccessToken.startsWith("VU")) {
+						setAttributes(session, JwtTokenSubjectDto.builder()
+							.loginId(jwtChatAccessToken)
+							.nickname(jwtChatAccessToken)
+							.build(), roomId);
+						return handler.handle(session);
+					} else if (!"notlogin".equals(jwtChatAccessToken)) {
+						log.info("로그인한 사용자의 채팅 웹 소켓 연결 요청");
+						setAttributes(session, jwtUtil.getSubjectFromToken(jwtChatAccessToken), roomId);
+						return handler.handle(session);
 
-							setAttributes(session, jwtUtil.getSubjectFromToken(jwtChatAccessToken));
-							return super.handleRequest(exchange, handler);
-							// TODO: 2023-12-26 방송의 방장 or Manager 인지 파악하는 로직 추가
-						} else { ;
-							session.getAttributes().put("Role", Role.NOT_LOGIN.toString());
-							return super.handleRequest(exchange, handler);
-						}
-					});
+						// TODO: 2023-12-26 방송의 방장 or Manager 인지 파악하는 로직 추가
+					} else {
+						log.info("로그인하지 않은 사용자의 채팅 웹 소켓 연결 요청");
+						session.getAttributes().put("Role", Role.NOT_LOGIN.toString());
+						return handler.handle(session);
+					}
+				};
 
-				// String path = exchange.getRequest().getURI().getPath();
-				// String jwtChatAccessToken = path.substring(path.lastIndexOf("/") + 1);
-				// // log.info("jwtChatAccessToken : " + jwtChatAccessToken);
-				//
-				// if (ObjectUtils.isEmpty(jwtChatAccessToken)) {
-				// 	throw new RuntimeException("chatAccessToken path param이 공백 문자열입니다.");
-				// }
-				// if (jwtChatAccessToken.startsWith("VU")) {
-				// 	return exchange.getSession().flatMap(session -> {
-				// 		setAttributes(session, JwtTokenSubjectDto.builder()
-				// 			.loginId(jwtChatAccessToken)
-				// 			.nickname(jwtChatAccessToken)
-				// 			.build());
-				// 		return super.handleRequest(exchange, handler);
-				// 	});
-				// }
-				// if (!"notlogin".equals(jwtChatAccessToken)) {
-				// 	log.info("로그인한 사용자의 채팅 웹 소켓 연결 요청");
-				// 	return exchange.getSession().flatMap(session -> {
-				// 		setAttributes(session, jwtUtil.getSubjectFromToken(jwtChatAccessToken));
-				// 		return super.handleRequest(exchange, handler);
-				// 	});
-				// 	// TODO: 2023-12-26 방송의 방장 or Manager 인지 파악하는 로직 추가
-				// } else {
-				// 	log.info("로그인하지 않은 사용자의 채팅 웹 소켓 연결 요청");
-				// 	return exchange.getSession().flatMap(session -> {
-				// 		session.getAttributes().put("Role", Role.NOT_LOGIN.toString());
-				// 		return super.handleRequest(exchange, handler);
-				// 	});
-				// }
+				return super.handleRequest(exchange, decorator);
 			}
 		};
 
