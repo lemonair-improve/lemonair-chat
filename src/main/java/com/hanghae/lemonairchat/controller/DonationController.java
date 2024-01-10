@@ -1,6 +1,6 @@
 package com.hanghae.lemonairchat.controller;
 
-import com.hanghae.lemonairchat.DonationService;
+import com.hanghae.lemonairchat.service.DonationService;
 import com.hanghae.lemonairchat.dto.DonationRequestDto;
 import com.hanghae.lemonairchat.dto.DonationResponseDto;
 import lombok.RequiredArgsConstructor;

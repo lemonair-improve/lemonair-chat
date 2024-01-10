@@ -50,6 +50,8 @@ public class ChatWebSocketHandler implements WebSocketHandler {
             return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 경로입니다"));
         }
 
+        log.info("roomId : " + roomId);
+
         kafkaTopicManager.createTopic(roomId, 3, (short) 1).subscribeOn(Schedulers.boundedElastic())
             .subscribe();
 
@@ -62,7 +64,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
             .filter(chat -> !chat.getMessage().equals("heartbeat"))
             .flatMap(chat -> {
                 return session.send(
-                        Mono.just(session.textMessage(chat.getSender() + ":" + chat.getMessage())))
+                        Mono.just(session.textMessage(chat.getMessageType() + ":" + chat.getSender() + ":" + chat.getDonateMessage() + ":" + chat.getMessage())))
                     .doOnError(
                         throwable -> log.error(" 메세지 전송중 에러 발생 : {}", throwable.getMessage()));
             })
@@ -80,8 +82,6 @@ public class ChatWebSocketHandler implements WebSocketHandler {
             })
             .flatMap(webSocketMessage -> {
                 String message = webSocketMessage.getPayloadAsText();
-                log.info("webSocketMessage.getType() : " + webSocketMessage.getType());
-                log.info("message : " + message);
 //                if (webSocketMessage.getType() == Type.PING) {
 //                    return session.send(Mono.just(session.pongMessage(
 //                        DataBufferFactory::allocateBuffer)));
