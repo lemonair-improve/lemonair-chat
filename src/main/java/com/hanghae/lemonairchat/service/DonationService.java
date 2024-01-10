@@ -1,12 +1,9 @@
 package com.hanghae.lemonairchat.service;
 
-import static java.lang.String.valueOf;
-
 import com.hanghae.lemonairchat.constants.MessageType;
 import com.hanghae.lemonairchat.dto.DonationRequestDto;
 import com.hanghae.lemonairchat.dto.DonationResponseDto;
 import com.hanghae.lemonairchat.entity.Chat;
-import com.hanghae.lemonairchat.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
