@@ -34,6 +34,7 @@ public class ChatService implements CommandLineRunner {
 		// 	throw new RuntimeException("아직 개설되지 않은 채팅방에 입장 시도");
 		// }
 		rooms.putIfAbsent(roomId, new ArrayList<>());
+
 		List<WebSocketSession> sessionsInRoom = rooms.get(roomId);
 		synchronized (sessionsInRoom) {
 			sessionsInRoom.add(webSocketSession);
