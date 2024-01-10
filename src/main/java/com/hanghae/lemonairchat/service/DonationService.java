@@ -20,29 +20,25 @@ import reactor.core.publisher.Mono;
 public class DonationService {
 
     private final ReactiveKafkaProducerTemplate<String, Chat> reactiveKafkaProducerTemplate;
-    private final MemberRepository memberRepository;
 
     public Mono<ResponseEntity<DonationResponseDto>> donate(DonationRequestDto donationRequestDto,
         Long streamerId) {
-        String donateMessage = donationRequestDto.getNickname() + "님이 " + donationRequestDto.getDonatePoint()
+        String donateMessage =
+            donationRequestDto.getNickname() + "님이 " + donationRequestDto.getDonatePoint()
                 + "레몬을 후원하셨습니다.";
 
         String message = donationRequestDto.getContents();
 
-        Chat donate = new Chat(message, "System", streamerId.toString(), MessageType.DONATION, donateMessage);
+        Chat donate = new Chat(message, "System", streamerId.toString(), MessageType.DONATION,
+            donateMessage);
 
-
-        return memberRepository.findById(streamerId)
-            .flatMap(streamer -> {
-                String topic = streamer.getLoginId();
-                return reactiveKafkaProducerTemplate.send(topic, donate)
-                    .log()
-                    .then(Mono.just(ResponseEntity.ok(new DonationResponseDto(
-                        donationRequestDto.getNickname(),
-                        streamerId,
-                        donationRequestDto.getContents(),
-                        donationRequestDto.getDonatePoint()
-                    ))));
-            });
-    }
+        return reactiveKafkaProducerTemplate.send("chat", donate)
+            .log()
+            .then(Mono.just(ResponseEntity.ok(new DonationResponseDto(
+                donationRequestDto.getNickname(),
+                streamerId,
+                donationRequestDto.getContents(),
+                donationRequestDto.getDonatePoint()
+            ))));
+    };
 }
