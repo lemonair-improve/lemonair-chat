@@ -31,11 +31,18 @@ public class WebSocketConfig {
 	public WebSocketService webSocketService(JwtUtil jwtUtil) {
 		HandshakeWebSocketService webSocketService = new HandshakeWebSocketService() {
 
-			private static void setAttributes(WebSocketSession session, JwtTokenSubjectDto dto, String roomId) {
+			private static void setAttributes(WebSocketSession session, String roomId, JwtTokenSubjectDto dto) {
 				session.getAttributes().put("Role", Role.MEMBER.toString());
 				session.getAttributes().put("RoomId", roomId);
 				session.getAttributes().put("LoginId", dto.getLoginId());
 				session.getAttributes().put("Nickname", dto.getNickname());
+			}
+
+			private static void setAttributes(WebSocketSession session, String roomId) {
+				session.getAttributes().put("Role", Role.MEMBER.toString());
+				session.getAttributes().put("RoomId", roomId);
+				session.getAttributes().put("LoginId", "NotLogin");
+				session.getAttributes().put("Nickname", "NotLogin");
 			}
 
 			@Override
@@ -52,20 +59,20 @@ public class WebSocketConfig {
 					String jwtChatAccessToken = pathSegments[3];
 
 					if (jwtChatAccessToken.startsWith("VU")) {
-						setAttributes(session, JwtTokenSubjectDto.builder()
+						setAttributes(session, roomId, JwtTokenSubjectDto.builder()
 							.loginId(jwtChatAccessToken)
 							.nickname(jwtChatAccessToken)
-							.build(), roomId);
+							.build());
 						return handler.handle(session);
 					} else if (!"notlogin".equals(jwtChatAccessToken)) {
 						log.info("로그인한 사용자의 채팅 웹 소켓 연결 요청");
-						setAttributes(session, jwtUtil.getSubjectFromToken(jwtChatAccessToken), roomId);
+						setAttributes(session, roomId, jwtUtil.getSubjectFromToken(jwtChatAccessToken));
 						return handler.handle(session);
 
 						// TODO: 2023-12-26 방송의 방장 or Manager 인지 파악하는 로직 추가
 					} else {
 						log.info("로그인하지 않은 사용자의 채팅 웹 소켓 연결 요청");
-						session.getAttributes().put("Role", Role.NOT_LOGIN.toString());
+						setAttributes(session, roomId);
 						return handler.handle(session);
 					}
 				};
