@@ -13,6 +13,6 @@ server:
 
 logging:
   level:
-    org.apache.kafka: info
-    root: info
+    org.apache.kafka: error
+    root: error
 
