@@ -66,8 +66,8 @@ public class KafkaConsumerService implements CommandLineRunner {
 		return Flux.fromIterable(roomSessionListMap.entrySet())
 			.filter(entry -> roomId.equals(entry.getKey()))
 			.flatMap(entry -> Flux.fromIterable(entry.getValue())
-				.parallel()
-				.runOn(Schedulers.parallel())
+				// .parallel()
+				// .runOn(Schedulers.parallel())
 				.flatMap(webSocketSession -> {
 					log.info("kafka -> c {} 한테 전송", webSocketSession.getAttributes().get("LoginId").toString());
 					return webSocketSession.send(Mono.just(webSocketSession.textMessage(messageToSend)));
