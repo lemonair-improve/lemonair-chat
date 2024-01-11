@@ -27,16 +27,14 @@ public class ChatService implements CommandLineRunner {
 	private final Map<String, List<WebSocketSession>> rooms = new ConcurrentHashMap<>();
 	// private final ConcurrentHashMap<String, Lock> roomLocks = new ConcurrentHashMap<>();
 
-	public void enterRoom(String roomId, WebSocketSession webSocketSession) {
-		// if (!rooms.containsKey(roomId)) {
-		// 	log.error("아직 개설되지 않은 채팅방에 입장 시도 loginId : {}, roomId : {}",
-		// 		webSocketSession.getAttributes().get("LoginId"), roomId);
-		// 	throw new RuntimeException("아직 개설되지 않은 채팅방에 입장 시도");
-		// }
-		rooms.putIfAbsent(roomId, new ArrayList<>());
-		rooms.get(roomId).add(webSocketSession);
-		log.info("{} 채팅방 새로운 참가자 {} 현재 참가자의 수는 {}", roomId, webSocketSession.getAttributes().get("LoginId"),
-			rooms.get(roomId).size());
+	public Mono<Boolean> enterRoom(String roomId, WebSocketSession webSocketSession) {
+		return Mono.fromCallable(()->{
+			rooms.putIfAbsent(roomId, new ArrayList<>());
+			rooms.get(roomId).add(webSocketSession);
+			// log.info("{} 채팅방 새로운 참가자 {} 현재 참가자의 수는 {}", roomId, webSocketSession.getAttributes().get("LoginId"),
+			// 	rooms.get(roomId).size());
+			return true;
+		});
 	}
 
 	public void exitRoom(String roomId, WebSocketSession webSocketSession) {
