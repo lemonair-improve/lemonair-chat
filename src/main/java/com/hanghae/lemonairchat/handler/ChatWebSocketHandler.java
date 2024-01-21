@@ -39,8 +39,9 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 			.subscribeOn(Schedulers.boundedElastic())
 			.doFinally(signalType -> {
 				log.info("{}님 연결 끊김 ", nickname);
-				chatService.exitRoom(roomId, session);
-				session.close().subscribeOn(Schedulers.boundedElastic()).subscribe();
+				chatService.exitRoom(roomId, session)
+					.then(session.close())
+					.subscribe();
 			})
 			.filter(webSocketMessage -> !webSocketMessage.getPayloadAsText().equals("heartbeat"))
 			.flatMap(webSocketMessage -> {
