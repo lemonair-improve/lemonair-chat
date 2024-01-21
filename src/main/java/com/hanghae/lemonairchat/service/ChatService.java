@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.kafka.core.reactive.ReactiveKafkaConsumerTemplate;
@@ -25,36 +26,30 @@ import reactor.core.scheduler.Schedulers;
 public class ChatService implements CommandLineRunner {
 	private final ReactiveKafkaConsumerTemplate<String, Chat> reactiveKafkaConsumerTemplate;
 	private final Map<String, List<WebSocketSession>> rooms = new ConcurrentHashMap<>();
-	// private final ConcurrentHashMap<String, Lock> roomLocks = new ConcurrentHashMap<>();
 
 	public void enterRoom(String roomId, WebSocketSession webSocketSession) {
-		// if (!rooms.containsKey(roomId)) {
-		// 	log.error("아직 개설되지 않은 채팅방에 입장 시도 loginId : {}, roomId : {}",
-		// 		webSocketSession.getAttributes().get("LoginId"), roomId);
-		// 	throw new RuntimeException("아직 개설되지 않은 채팅방에 입장 시도");
-		// }
-		rooms.putIfAbsent(roomId, new ArrayList<>());
-
-		List<WebSocketSession> sessionsInRoom = rooms.get(roomId);
-		synchronized (sessionsInRoom) {
-			sessionsInRoom.add(webSocketSession);
-		}
-		log.info("{} 채팅방 새로운 참가자 {} 현재 참가자의 수는 {}", roomId, webSocketSession.getAttributes().get("LoginId"),
-			rooms.get(roomId).size());
+		Mono.just(roomId)
+			.flatMap(room -> {
+				rooms.putIfAbsent(room, new CopyOnWriteArrayList<>());
+				return Mono.just(rooms.get(room));
+			})
+			.flatMap(sessionsInRoom -> {
+				sessionsInRoom.add(webSocketSession);
+				return Mono.just(sessionsInRoom);
+			})
+			.doOnNext(sessionsInRoom -> log.info("{} 채팅방 새로운 참가자 {} 현재 참가자의 수는 {}", roomId,
+				webSocketSession.getAttributes().get("LoginId"), sessionsInRoom.size()))
+			.subscribe();
 	}
 
-	public void exitRoom(String roomId, WebSocketSession webSocketSession) {
-		if (!rooms.containsKey(roomId)) {
-			log.error("존재하지 않는 채팅방에서 퇴장 시도 loginId : {}, roomId : {}", webSocketSession.getAttributes().get("LoginId"),
-				roomId);
-			throw new RuntimeException("채팅방 퇴장 예외 발생 : 채팅방이 존재하지 않음");
-		}
-		List<WebSocketSession> webSocketSessionList = rooms.get(roomId);
-		synchronized (webSocketSessionList) {
-			webSocketSessionList.remove(webSocketSession);
-		}
-		log.info("{} 채팅방에서 {} 가 퇴장 현재 참가자의 수는 {}", roomId, webSocketSession.getAttributes().get("LoginId"),
-			rooms.get(roomId).size());
+	public Mono<Void> exitRoom(String roomId, WebSocketSession webSocketSession) {
+		return Mono.just(roomId)
+			.filter(rooms::containsKey)
+			.switchIfEmpty(Mono.error(new RuntimeException("채팅방 퇴장 예외 발생 : 채팅방이 존재하지 않음")))
+			.map(rooms::get)
+			.flatMap(sessionsInRoom -> Mono.fromRunnable(() -> sessionsInRoom.remove(webSocketSession)))
+			.doOnSuccess(removed -> log.info("{} 채팅방에서 {} 가 퇴장 현재 참가자의 수는 {}", roomId, webSocketSession.getAttributes().get("LoginId"), rooms.get(roomId).size()))
+			.then();
 	}
 
 	@Override
@@ -85,22 +80,22 @@ public class ChatService implements CommandLineRunner {
 	}
 
 	public Mono<Boolean> createRoom(String roomId) {
-		return Mono.fromCallable(() -> {
-			if (rooms.containsKey(roomId)) {
-				throw new RuntimeException(roomId + " 채팅방은 이미 개설되어있음");
-			}
-			rooms.put(roomId, new ArrayList<>());
-			return true;
-		});
+		return Mono.just(roomId)
+			.filter(room -> !rooms.containsKey(room))
+			.switchIfEmpty(Mono.error(new RuntimeException(roomId + " 채팅방은 이미 개설되어있음")))
+			.flatMap(createRoom -> {
+				rooms.put(createRoom, new CopyOnWriteArrayList<>());
+				return Mono.just(true);
+			});
 	}
 
 	public Mono<Boolean> removeRoom(String roomId) {
-		return Mono.fromCallable(() -> {
-			if (!rooms.containsKey(roomId)) {
-				throw new RuntimeException(roomId + " 채팅방이 없는데 삭제 요청");
-			}
-			rooms.remove(roomId);
-			return true;
-		});
+		return Mono.defer(() -> Mono.just(roomId)
+			.filter(rooms::containsKey)
+			.switchIfEmpty(Mono.error(new RuntimeException(roomId + " 채팅방이 없는데 삭제 요청")))
+			.map(existingRoomId -> {
+				rooms.remove(existingRoomId);
+				return true;
+			}));
 	}
 }
