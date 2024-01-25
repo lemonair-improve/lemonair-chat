@@ -7,6 +7,7 @@ services:
       - "2181:2181"
     environment:
       ZOO_MY_ID: 1
+
       ZOO_PORT: 2181
     volumes:
       - ~/data/zookeeper/data:/data

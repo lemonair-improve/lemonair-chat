@@ -1,21 +1,25 @@
 package com.hanghae.lemonairchat.kafka;
 
-import com.hanghae.lemonairchat.entity.Chat;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import lombok.extern.slf4j.Slf4j;
+
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.reactive.ReactiveKafkaConsumerTemplate;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.stereotype.Service;
+
+import com.hanghae.lemonairchat.entity.Chat;
+
+import lombok.extern.slf4j.Slf4j;
 import reactor.kafka.receiver.ReceiverOptions;
 
-@Service
-@Slf4j
-public class KafkaConsumerService {
+@Configuration
+public class KafkaConsumerConfig {
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServer;
 
@@ -25,7 +29,8 @@ public class KafkaConsumerService {
     @Value("${spring.kafka.consumer.value-deserializer}")
     private String valueDeserializer;
 
-    public ReactiveKafkaConsumerTemplate<String, Chat> reactiveKafkaConsumerTemplate(String roomId) {
+    @Bean
+    public ReactiveKafkaConsumerTemplate<String, Chat> reactiveKafkaConsumerTemplate() {
         Map<String, Object> config = new HashMap<>();
         config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServer);
         config.put(ConsumerConfig.GROUP_ID_CONFIG, "chat-consumer-group" + UUID.randomUUID());
@@ -39,7 +44,7 @@ public class KafkaConsumerService {
         config.put(JsonDeserializer.VALUE_DEFAULT_TYPE, Chat.class);
 
         ReceiverOptions<String, Chat> basicReceiverOptions = ReceiverOptions.create(config);
-        ReceiverOptions<String, Chat> options = basicReceiverOptions.subscription(Collections.singletonList(roomId));
+        ReceiverOptions<String, Chat> options = basicReceiverOptions.subscription(Collections.singletonList("chat"));
         return new ReactiveKafkaConsumerTemplate<>(options);
     }
 }
