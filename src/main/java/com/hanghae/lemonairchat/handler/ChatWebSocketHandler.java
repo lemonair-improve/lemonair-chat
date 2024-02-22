@@ -7,6 +7,7 @@ import com.hanghae.lemonairchat.service.ChatService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.boot.actuate.autoconfigure.metrics.MetricsProperties;
 import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.socket.WebSocketHandler;
@@ -40,16 +41,17 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 		chatService.enterRoom(roomId, session);
 
 		return session.receive()
-			.subscribeOn(Schedulers.boundedElastic())
+			.log("receive")
 			.filter(this::filterHeartBeat)
 			.map(webSocketMessage -> new Chat(webSocketMessage.getPayloadAsText(), nickname, roomId))
-			.flatMap(chat -> Mono.when(chatRepository.save(chat), reactiveKafkaProducerTemplate.send("chat", chat))
-				.doOnError(exception -> log.error("채팅 전송중 오류 발생 : " + exception.getMessage())))
-			.doFinally(signalType -> {
-				Mono.when(chatService.exitRoom(roomId, session), session.close())
-					.subscribeOn(Schedulers.boundedElastic())
-					.subscribe();
-			})
+			.flatMap(chat -> Mono.when(
+				chatRepository.save(chat).log("채팅 저장")
+					.doOnError(exception -> log.error("채팅 저장 중 오류 발생 " + exception.getMessage())),
+				reactiveKafkaProducerTemplate.send("chat", chat).log("카프카에 전송")
+					.doOnError(exception -> log.error("채팅 전송중 오류 발생 : " + exception.getMessage()))).log("Monowhen"))
+			.doFinally(signalType -> Mono.when(chatService.exitRoom(roomId, session), session.close())
+				.subscribeOn(Schedulers.boundedElastic())
+				.subscribe())
 			.then();
 	}
 
